@@ -1,0 +1,6 @@
+{
+  "name": "SISAGENDA • Mentes em Desenvolvimento",
+  "description": "Sistema personalizado de gestão de consultas e terapias multidisciplinares para crianças com espectro autista (TEA), idealizado e operado em Sarandi - PR.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
