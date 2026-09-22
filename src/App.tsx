@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { AppView, Cliente, Servico, Agendamento, AuthUser } from './types';
+import { AppView, Cliente, Servico, Agendamento, AgendamentoStatus, AuthUser } from './types';
 import { DbService } from './services/db';
 import LoginView from './components/LoginView';
 import DashboardView from './components/DashboardView';
@@ -197,6 +197,25 @@ export default function App() {
     }
   };
 
+  // Troca rápida de situação pela tabela da agenda: mesma gravação, aviso próprio
+  const handleMudarSituacao = async (ag: Agendamento, status: AgendamentoStatus) => {
+    try {
+      await DbService.salvarAgendamento({
+        id: ag.id,
+        cliente_id: ag.cliente_id,
+        servico_id: ag.servico_id,
+        data_agendamento: ag.data_agendamento,
+        hora_agendamento: ag.hora_agendamento,
+        observacao: ag.observacao || '',
+        status
+      });
+      await carregarTodosOsDados();
+      mostrarAlert('success', `Situação atualizada para ${status}.`);
+    } catch (err: any) {
+      mostrarAlert('error', `Não deu para atualizar a situação: ${err.message}`);
+    }
+  };
+
   const handleExcluirAgendamento = (id: string) => {
     const ag = agendamentos.find(a => a.id === id);
     if (!ag) return;
@@ -325,7 +344,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setAlert(null)}
-                className="cursor-pointer text-neutral-700 hover:text-accent-700"
+                className="cursor-pointer px-1.5 py-px text-neutral-700 hover:text-accent-700"
               >
                 Fechar
               </button>
@@ -368,6 +387,7 @@ export default function App() {
               clientes={clientes}
               servicos={servicos}
               onSalvar={handleSalvarAgendamento}
+              onMudarSituacao={handleMudarSituacao}
               onExcluir={handleExcluirAgendamento}
               carregando={loadingData}
               forceOpenCreateModal={forceOpenBookingModal}
@@ -400,7 +420,7 @@ export default function App() {
                 type="button"
                 onClick={fecharIndice}
                 aria-label="Fechar índice"
-                className="cursor-pointer text-neutral-700 hover:text-accent-700"
+                className="cursor-pointer px-1.5 py-px text-neutral-700 hover:text-accent-700"
               >
                 <X size={22} aria-hidden="true" />
               </button>

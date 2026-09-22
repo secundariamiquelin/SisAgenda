@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Agendamento, Cliente, Servico, AgendamentoStatus } from '../types';
-import { Search, PlusCircle, Edit2, Trash2, X, Calendar, AlertCircle, RefreshCw, ChevronLeft, ChevronRight, User, FolderPlus, Clock, DollarSign, CalendarCheck, Check, CornerDownRight } from 'lucide-react';
+import { X, Calendar, AlertCircle, Clock, CalendarCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import CabecalhoPagina from './ui/CabecalhoPagina';
+import Paginacao from './ui/Paginacao';
+import AcoesLinha from './ui/AcoesLinha';
+import EstadoVazio from './ui/EstadoVazio';
+import { COR_SITUACAO, HOJE, SITUACOES, formatarContribuicao, plural, rotuloDia } from './ui/formatos';
 
 interface AgendamentosViewProps {
   agendamentos: Agendamento[];
@@ -14,31 +19,35 @@ interface AgendamentosViewProps {
     hora_agendamento: string;
     status: AgendamentoStatus;
   }) => Promise<void>;
+  onMudarSituacao: (agendamento: Agendamento, status: AgendamentoStatus) => void;
   onExcluir: (id: string) => void;
   carregando: boolean;
   forceOpenCreateModal: boolean;
   onClearForceOpen: () => void;
 }
 
+const FILTROS = ['Todas', ...SITUACOES];
+
 export default function AgendamentosView({
   agendamentos,
   clientes,
   servicos,
   onSalvar,
+  onMudarSituacao,
   onExcluir,
   carregando,
   forceOpenCreateModal,
   onClearForceOpen
 }: AgendamentosViewProps) {
   const [search, setSearch] = useState('');
-  const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('Todos');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('Todas');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingAgendamento, setEditingAgendamento] = useState<Agendamento | null>(null);
 
   // Form fields
   const [clienteId, setClienteId] = useState('');
   const [servicoId, setServicoId] = useState('');
-  const [dataAgendamento, setDataAgendamento] = useState('2026-06-12'); // default context date
+  const [dataAgendamento, setDataAgendamento] = useState(HOJE);
   const [horaAgendamento, setHoraAgendamento] = useState('09:00');
   const [observacao, setObservacao] = useState('');
   const [status, setStatus] = useState<AgendamentoStatus>('Agendado');
@@ -49,7 +58,7 @@ export default function AgendamentosView({
 
   // Simple Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 6;
+  const itemsPerPage = 5;
 
   // React on action navigation from dashboard
   useEffect(() => {
@@ -72,16 +81,19 @@ export default function AgendamentosView({
 
     // 2. Filter by status tabs
     const matchesStatus =
-      selectedStatusFilter === 'Todos' || ag.status === selectedStatusFilter;
+      selectedStatusFilter === 'Todas' || ag.status === selectedStatusFilter;
 
     return matchesSearch && matchesStatus;
   });
 
   const totalPages = Math.ceil(filteredAgendamentos.length / itemsPerPage) || 1;
+  // Depois de uma exclusão a página atual pode deixar de existir
+  const paginaAtual = Math.min(currentPage, totalPages);
   const paginatedAgendamentos = filteredAgendamentos.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    (paginaAtual - 1) * itemsPerPage,
+    paginaAtual * itemsPerPage
   );
+  const buscando = search !== '' || selectedStatusFilter !== 'Todas';
 
   const openRegisterModal = (agendamento?: Agendamento) => {
     if (agendamento) {
@@ -97,7 +109,7 @@ export default function AgendamentosView({
       // Pega o primeiro cliente/serviço por padrão, se houver
       setClienteId(clientes.length > 0 ? clientes[0].id : '');
       setServicoId(servicos.length > 0 ? servicos[0].id : '');
-      setDataAgendamento('2026-06-12');
+      setDataAgendamento(HOJE);
       setHoraAgendamento('09:00');
       setObservacao('');
       setStatus('Agendado');
@@ -154,255 +166,155 @@ export default function AgendamentosView({
     }
   };
 
-  const changeStatusQuickly = async (ag: Agendamento, newStatus: AgendamentoStatus) => {
-    try {
-      await onSalvar({
-        id: ag.id,
-        cliente_id: ag.cliente_id,
-        servico_id: ag.servico_id,
-        data_agendamento: ag.data_agendamento,
-        hora_agendamento: ag.hora_agendamento,
-        observacao: ag.observacao || '',
-        status: newStatus
-      });
-    } catch (err: any) {
-      alert(`Falha ao alterar status: ${err.message}`);
-    }
-  };
-
   const formatPreco = (val: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
   };
 
-  // Funções legíveis auxiliares para datas
-  const helperFormatDate = (dateStr: string) => {
-    if (dateStr === '2026-06-12') return <strong className="text-blue-600">Hoje (12/06/2026)</strong>;
-    if (dateStr === '2026-06-13') return <span className="text-emerald-700">Amanhã (13/06/2026)</span>;
-    // Formatar DD/MM/YYYY
-    const parts = dateStr.split('-');
-    if (parts.length === 3) {
-      return `${parts[2]}/${parts[1]}/${parts[0]}`;
-    }
-    return dateStr;
-  };
-
   return (
-    <div id="agendamentos-view-root" className="space-y-6">
-      {/* Top Controls Layout */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">Atendimentos & Consultas</h2>
-          <p className="text-xs text-slate-500">Planeje horários lúdicos, fonoaudiológicos e psicopedagógicos das crianças</p>
-        </div>
-
-        <button
-          id="btn-criar-agendamento"
-          onClick={() => openRegisterModal()}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-500/10 transition cursor-pointer"
-        >
-          <PlusCircle className="h-4 w-4" />
-          Agendar Atendimento
-        </button>
-      </div>
-
-      {/* Tabs list for filtering by status */}
-      <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-100 pb-1">
-        {['Todos', 'Agendado', 'Confirmado', 'Concluído', 'Cancelado'].map((st) => (
-          <button
-            key={st}
-            id={`tab-filter-${st}`}
-            onClick={() => {
-              setSelectedStatusFilter(st);
-              setCurrentPage(1);
-            }}
-            className={`px-4 py-2 text-xs font-bold rounded-t-lg border-b-2 transition cursor-pointer
-              ${selectedStatusFilter === st
-                ? 'border-blue-600 text-blue-700 bg-blue-50/20'
-                : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
-              }`}
-          >
-            {st}
+    <section id="agendamentos-view-root" className="pt-11">
+      <CabecalhoPagina
+        titulo="A agenda"
+        descricao="Todas as sessões marcadas — quem vem, com quem, a que horas."
+        acao={
+          <button id="btn-criar-agendamento" type="button" onClick={() => openRegisterModal()} className="btn btn-primary">
+            Marcar atendimento
           </button>
-        ))}
-      </div>
+        }
+      />
 
-      {/* Main Table Card */}
-      <div className="rounded-xl border border-slate-100 bg-white shadow-2xs overflow-hidden">
-        {/* Search */}
-        <div className="p-4 border-b border-slate-100 bg-slate-50/20">
-          <div className="relative max-w-md">
-            <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
-              <Search className="h-4 w-4" />
-            </span>
-            <input
-              id="input-pesquisar-agendamentos"
-              type="text"
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
+      {/* Filtros de situação e busca */}
+      <div className="mt-[34px] flex flex-wrap items-center gap-6 border-b border-divider pb-3">
+        {FILTROS.map((filtro) => {
+          const ativo = selectedStatusFilter === filtro;
+          return (
+            <button
+              key={filtro}
+              id={`tab-filter-${filtro}`}
+              type="button"
+              aria-pressed={ativo}
+              onClick={() => {
+                setSelectedStatusFilter(filtro);
                 setCurrentPage(1);
               }}
-              placeholder="Pesquisar cliente, serviço, observações, hora..."
-              className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg bg-white placeholder-slate-400 focus:outline-hidden focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition"
-            />
-          </div>
-        </div>
+              className={`cursor-pointer border-b-2 pb-1 text-[13px] tracking-[0.1em] uppercase hover:text-accent-700
+                ${ativo ? 'border-accent text-text' : 'border-transparent text-neutral-700'}`}
+            >
+              {filtro}
+            </button>
+          );
+        })}
+        <input
+          id="input-pesquisar-agendamentos"
+          type="text"
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setCurrentPage(1);
+          }}
+          aria-label="Buscar na agenda"
+          placeholder="Buscar criança, terapia, horário…"
+          className="input sm:ml-auto sm:w-auto sm:min-w-[280px]"
+        />
+      </div>
 
-        {/* Loading / Empty States */}
-        {carregando ? (
-          <div className="flex flex-col items-center justify-center py-16 text-slate-500">
-            <RefreshCw className="h-8 w-8 animate-spin text-blue-600 mb-3" />
-            <p className="text-xs">Buscando compromissos agendados...</p>
-          </div>
-        ) : filteredAgendamentos.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="rounded-full bg-slate-50 p-4 text-slate-300 mb-3">
-              <Calendar className="h-8 w-8 stroke-[1.5]" />
-            </div>
-            <h4 className="text-sm font-bold text-slate-700">Nenhum agendamento encontrado</h4>
-            <p className="text-xs text-slate-400 max-w-sm mt-1 px-4">
-              {search || selectedStatusFilter !== 'Todos'
-                ? 'Nenhum resultado atende à sua busca ou status selecionado.'
-                : 'Você ainda não possui horários marcados. Agende um horário para começar!'}
-            </p>
-          </div>
+      {carregando ? (
+        <p role="status" className="py-[70px] text-[15px] text-neutral-700">Carregando a agenda…</p>
+      ) : filteredAgendamentos.length === 0 ? (
+        buscando ? (
+          <EstadoVazio
+            titulo="Nada encontrado"
+            texto="Nenhuma sessão corresponde à busca ou ao filtro escolhido. Tente outro termo ou volte para “Todas”."
+          />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+          <EstadoVazio
+            titulo="A agenda está em branco"
+            texto="Nenhuma sessão marcada ainda. Que tal chamar a primeira família da lista de espera?"
+            acao={
+              <button type="button" onClick={() => openRegisterModal()} className="btn btn-secondary">
+                Marcar a primeira
+              </button>
+            }
+          />
+        )
+      ) : (
+        <>
+          <div className="mt-2 overflow-x-auto">
+            <table className="table min-w-[720px]">
               <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/50 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  <th className="px-6 py-4">Horário & Data</th>
-                  <th className="px-6 py-4">Cliente</th>
-                  <th className="px-6 py-4">Serviço Pretendido</th>
-                  <th className="px-6 py-4">Observações</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4 text-right">Ações</th>
+                <tr>
+                  <th>Horário</th>
+                  <th>Criança</th>
+                  <th>Terapia</th>
+                  <th>Observações</th>
+                  <th>Situação</th>
+                  <th className="text-right">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-                {paginatedAgendamentos.map((ag) => (
-                  <tr key={ag.id} className="hover:bg-slate-50/40 transition">
-                    {/* Data e Hora */}
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center justify-center rounded-md bg-blue-50 border border-blue-100 px-2 py-1 text-xs font-bold text-blue-700 font-mono">
-                          {ag.hora_agendamento}
-                        </span>
-                        <span className="text-xs text-slate-600 font-medium">
-                          {helperFormatDate(ag.data_agendamento)}
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* Cliente */}
-                    <td className="px-6 py-4">
-                      <div>
-                        <div className="font-semibold text-slate-900">
-                          {ag.cliente?.nome || <span className="text-rose-500 italic">Desconhecido</span>}
+              <tbody>
+                {paginatedAgendamentos.map((ag) => {
+                  const nome = ag.cliente?.nome || 'Criança removida';
+                  return (
+                    <tr key={ag.id} className="hover:bg-neutral-100">
+                      <td>
+                        <div className="text-[18px] font-bold">{ag.hora_agendamento}</div>
+                        <div
+                          className={`mt-0.5 text-[12px] ${ag.data_agendamento === HOJE ? 'text-accent-700' : 'text-neutral-700'}`}
+                        >
+                          {rotuloDia(ag.data_agendamento)}
                         </div>
-                        {ag.cliente?.telefone && (
-                          <div className="text-[11px] text-slate-400 font-mono mt-0.5">{ag.cliente.telefone}</div>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* Serviço */}
-                    <td className="px-6 py-4">
-                      {ag.servico ? (
-                        <div>
-                          <div className="font-semibold text-slate-800">{ag.servico.nome}</div>
-                          <div className="text-[11px] text-slate-400 mt-0.5">
-                            {ag.servico.duracao_minutos} min • <span className="font-bold text-blue-600">{formatPreco(ag.servico.preco)}</span>
-                          </div>
+                      </td>
+                      <td>
+                        <div className="font-semibold">{nome}</div>
+                        <div className="mt-0.5 text-[12px] text-neutral-700">{ag.cliente?.telefone || '—'}</div>
+                      </td>
+                      <td>
+                        <div>{ag.servico?.nome || 'Terapia removida'}</div>
+                        <div className="mt-0.5 text-[12px] text-neutral-700">
+                          {ag.servico
+                            ? `${ag.servico.duracao_minutos} min · ${formatarContribuicao(ag.servico.preco)}`
+                            : '—'}
                         </div>
-                      ) : (
-                        <span className="text-rose-500 italic">Serviço indisponível</span>
-                      )}
-                    </td>
-
-                    {/* Observação */}
-                    <td className="px-6 py-4 text-xs text-slate-500 max-w-xs truncate" title={ag.observacao}>
-                      {ag.observacao || <span className="text-slate-300 italic">Nenhuma observação</span>}
-                    </td>
-
-                    {/* Status Toggle Box */}
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col gap-1 items-start">
+                      </td>
+                      <td className="max-w-[240px] text-[13px] text-neutral-700">{ag.observacao || '—'}</td>
+                      <td>
                         <select
                           id={`select-status-agendamento-${ag.id}`}
                           value={ag.status}
-                          onChange={(e) => changeStatusQuickly(ag, e.target.value as AgendamentoStatus)}
-                          className={`text-xs font-bold tracking-wider uppercase rounded-md border border-slate-200 px-2.5 py-1 focus:outline-hidden
-                            ${ag.status === 'Confirmado' ? 'bg-blue-50 text-blue-700' : ''}
-                            ${ag.status === 'Agendado' ? 'bg-amber-50 text-amber-700' : ''}
-                            ${ag.status === 'Concluído' ? 'bg-emerald-50 text-emerald-700' : ''}
-                            ${ag.status === 'Cancelado' ? 'bg-rose-50 text-rose-700' : ''}
-                          `}
+                          onChange={(e) => onMudarSituacao(ag, e.target.value as AgendamentoStatus)}
+                          aria-label={`Situação da sessão de ${nome}`}
+                          className={`input px-2 py-[5px] text-[12px] tracking-[0.06em] uppercase ${COR_SITUACAO[ag.status].texto}`}
                         >
-                          <option value="Agendado">📅 Agendado</option>
-                          <option value="Confirmado">✅ Confirmado</option>
-                          <option value="Concluído">✔️ Concluído</option>
-                          <option value="Cancelado">❌ Cancelado</option>
+                          {SITUACOES.map((situacao) => (
+                            <option key={situacao} value={situacao}>
+                              {situacao}
+                            </option>
+                          ))}
                         </select>
-                      </div>
-                    </td>
-
-                    {/* Ações */}
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          id={`btn-editar-agendamento-${ag.id}`}
-                          onClick={() => openRegisterModal(ag)}
-                          className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-blue-600 transition"
-                          title="Editar"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </button>
-                        <button
-                          id={`btn-excluir-agendamento-${ag.id}`}
-                          onClick={() => onExcluir(ag.id)}
-                          className="rounded-lg p-1.5 text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition"
-                          title="Excluir"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td>
+                        <AcoesLinha
+                          descricao={`a sessão de ${nome}`}
+                          idEditar={`btn-editar-agendamento-${ag.id}`}
+                          idExcluir={`btn-excluir-agendamento-${ag.id}`}
+                          onEditar={() => openRegisterModal(ag)}
+                          onExcluir={() => onExcluir(ag.id)}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
-
-            {/* Pagination controls */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between border-t border-slate-100 bg-white px-6 py-4 text-xs text-slate-500">
-                <span>
-                  Exibindo página <strong>{currentPage}</strong> de <strong>{totalPages}</strong> (
-                  Total de <strong>{filteredAgendamentos.length}</strong> agendamentos)
-                </span>
-                <div className="flex items-center gap-1">
-                  <button
-                    id="pagination-prev"
-                    disabled={currentPage === 1}
-                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                    className="rounded-md border border-slate-200 p-1.5 hover:bg-slate-50 disabled:opacity-40 transition cursor-pointer"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <button
-                    id="pagination-next"
-                    disabled={currentPage === totalPages}
-                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                    className="rounded-md border border-slate-200 p-1.5 hover:bg-slate-50 disabled:opacity-40 transition cursor-pointer"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
-        )}
-      </div>
+
+          <Paginacao
+            resumo={`Página ${paginaAtual} de ${totalPages} · ${plural(filteredAgendamentos.length, 'sessão', 'sessões')}`}
+            pagina={paginaAtual}
+            totalPaginas={totalPages}
+            onMudarPagina={setCurrentPage}
+          />
+        </>
+      )}
 
       {/* Scheduler Dialog modal */}
       <AnimatePresence>
@@ -608,6 +520,6 @@ export default function AgendamentosView({
           </div>
         )}
       </AnimatePresence>
-    </div>
+    </section>
   );
 }

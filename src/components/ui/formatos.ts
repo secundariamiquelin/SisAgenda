@@ -39,6 +39,13 @@ export const COR_SITUACAO: Record<AgendamentoStatus, { texto: string; marca: str
   Cancelado: { texto: 'text-accent-2-700', marca: 'bg-accent-2-700' }
 };
 
+/** Situações na ordem em que aparecem nos filtros e seletores. */
+export const SITUACOES: AgendamentoStatus[] = ['Agendado', 'Confirmado', 'Concluído', 'Cancelado'];
+
+/** Valor da contribuição em reais, ou "Gratuito" quando é zero. */
+export const formatarContribuicao = (valor: number) =>
+  valor > 0 ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor) : 'Gratuito';
+
 /** "1 sessão", "3 sessões". */
 export const plural = (quantidade: number, singular: string, varias: string) =>
   `${quantidade} ${quantidade === 1 ? singular : varias}`;
