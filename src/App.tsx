@@ -340,7 +340,6 @@ export default function App() {
               clientes={clientes}
               servicos={servicos}
               onNavigateTo={handleNavigateFromDashboard}
-              onLogout={handleLogout}
               userEmail={currentUser.email}
             />
           )}

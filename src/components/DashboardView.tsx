@@ -1,297 +1,214 @@
 import React from 'react';
 import { Agendamento, Cliente, Servico, AppView } from '../types';
-import { Calendar, Users, TrendingUp, Sparkles, Clock, CheckCircle, AlertTriangle, Play, CalendarCheck, ShieldAlert, PlusCircle, LogOut } from 'lucide-react';
-import { motion } from 'motion/react';
+import { COR_SITUACAO, HOJE, plural, rotuloDia } from './ui/formatos';
 
 interface DashboardViewProps {
   agendamentos: Agendamento[];
   clientes: Cliente[];
   servicos: Servico[];
   onNavigateTo: (view: AppView, action?: string) => void;
-  onLogout: () => void;
   userEmail: string;
 }
+
+const primeiroNome = (email: string) => {
+  const emailLower = email.toLowerCase();
+  if (emailLower.includes('mileide')) return 'Mileide';
+  if (emailLower.includes('adenilson')) return 'Adenilson';
+  return 'equipe';
+};
 
 export default function DashboardView({
   agendamentos,
   clientes,
   servicos,
   onNavigateTo,
-  onLogout,
   userEmail
 }: DashboardViewProps) {
-  // Pegamos a data atual formatada com base no contexto do sistema (2026-06-12)
-  const todayStr = '2026-06-12';
+  // Sessões de hoje que ainda contam (canceladas não entram)
+  const agendamentosHojeAtivos = agendamentos.filter(a => a.data_agendamento === HOJE && a.status !== 'Cancelado');
 
-  // Filtragem de agendamentos de hoje
-  const agendamentosHoje = agendamentos.filter(a => a.data_agendamento === todayStr);
-  const agendamentosHojeAtivos = agendamentosHoje.filter(a => a.status !== 'Cancelado');
-
-  // Próximos agendamentos (qualquer agendamento hoje ou no futuro com status não cancelado)
+  // Próximas sessões: de hoje em diante, sem as canceladas, já ordenadas por data e hora
   const proximosAgendamentos = agendamentos
     .filter(a => {
       const dataHoraStr = `${a.data_agendamento}T${a.hora_agendamento}:00`;
       const dataHora = new Date(dataHoraStr);
-      const referencia = new Date(`${todayStr}T00:00:00`);
+      const referencia = new Date(`${HOJE}T00:00:00`);
       return dataHora >= referencia && a.status !== 'Cancelado';
     })
-    .slice(0, 5); // limite de 5 na visualização simplificada do painel
+    .slice(0, 4);
 
-  // Faturamento potencial de hoje (somente concluídos e confirmados/agendados hoje)
-  const faturamentoHoje = agendamentosHojeAtivos.reduce((acc, ag) => {
-    return acc + (ag.servico?.preco || 0);
-  }, 0);
+  // Sessões concluídas no mês da data de referência
+  const mesReferencia = HOJE.slice(0, 7);
+  const concluidasNoMes = agendamentos.filter(
+    a => a.status === 'Concluído' && a.data_agendamento.startsWith(mesReferencia)
+  ).length;
 
-  // Formata moeda (BRL)
-  const formatPreco = (val: number) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
-  };
+  const sessoesHoje = agendamentosHojeAtivos.length;
+  const saudacao = `Oi, ${primeiroNome(userEmail)}. ${
+    sessoesHoje === 1 ? 'Hoje é 1 sessão.' : `Hoje são ${sessoesHoje} sessões.`
+  }`;
+  const resumoDoDia = sessoesHoje
+    ? `A primeira criança chega às ${agendamentosHojeAtivos[0].hora_agendamento}. Confira os recados de cada sessão antes de começar o dia.`
+    : 'Nenhuma sessão marcada para hoje — bom momento para chamar quem está na lista de espera.';
 
-  const getFormattedName = () => {
-    const emailLower = userEmail.toLowerCase();
-    if (emailLower.includes('mileide')) return 'Mileide Martins';
-    if (emailLower.includes('mentes')) return 'Direção Geral';
-    if (emailLower.includes('adenilson')) return 'Adenilson Martins';
-    return 'Administrador';
-  };
+  const metricas = [
+    { valor: sessoesHoje, rotulo: 'Sessões hoje', nota: 'Confirmadas e a confirmar' },
+    { valor: clientes.length, rotulo: 'Crianças', nota: 'Em acompanhamento' },
+    { valor: servicos.length, rotulo: 'Terapias', nota: 'Modalidades ativas' },
+    { valor: concluidasNoMes, rotulo: 'Concluídas', nota: 'Sessões realizadas no mês' }
+  ];
+
+  const atalhos = [
+    {
+      id: 'dashboard-card-btn-clientes',
+      titulo: 'Cadastro das crianças',
+      descricao: 'Histórico, contato dos responsáveis e o que cada uma gosta',
+      view: 'clientes' as AppView
+    },
+    {
+      id: 'dashboard-card-btn-servicos',
+      titulo: 'Terapias oferecidas',
+      descricao: 'Duração das sessões e valor simbólico de cada modalidade',
+      view: 'servicos' as AppView
+    }
+  ];
 
   return (
-    <div id="dashboard-view-root" className="space-y-6">
-      {/* Welcome Banner */}
-      <div className="rounded-2xl bg-gradient-to-r from-blue-950 via-slate-900 to-slate-950 p-6 md:p-8 text-white shadow-xl relative overflow-hidden border border-slate-800">
-        <div className="absolute top-0 right-0 -mr-6 -mt-6 w-48 h-48 rounded-full bg-blue-500/10 blur-2xl pointer-events-none"></div>
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/20 px-3 py-1 text-xs font-semibold text-blue-200">
-              <Sparkles className="h-3 w-3" />
-              Mentes em Desenvolvimento • Sarandi - PR
-            </div>
-            <h2 className="mt-3 text-2xl md:text-3xl font-extrabold tracking-tight text-white leading-tight">
-              Olá, {getFormattedName()}!
-            </h2>
-            <p className="mt-2 text-slate-300 text-sm max-w-xl">
-              Gerencie os atendimentos multidisciplinares das crianças atendidas pelo Instituto Mentes em Desenvolvimento. Acompanhamento psicopedagógico, psicológico e fonoaudiológico facilitado.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
+    <section id="dashboard-view-root" className="pt-11">
+      {/* Abertura: saudação e resumo do dia */}
+      <div className="grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,300px)] lg:gap-15">
+        <div className="min-w-0">
+          <h1 className="mb-4 max-w-[16ch] text-[52px] leading-[1.02]">{saudacao}</h1>
+          <p className="m-0 max-w-[52ch] text-[19px] leading-[1.5] text-neutral-800">{resumoDoDia}</p>
+          <div className="mt-7 flex flex-wrap gap-3.5">
             <button
               id="dashboard-btn-new-appointment"
+              type="button"
               onClick={() => onNavigateTo('agendamentos', 'novo')}
-              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 px-5 py-3 text-sm font-semibold text-white shadow-md shadow-blue-500/15 transition-all transform hover:-translate-y-0.5 cursor-pointer"
+              className="btn btn-primary"
             >
-              <PlusCircle className="h-4.5 w-4.5" />
-              Novo Agendamento
+              Marcar um atendimento
             </button>
-
-            <button
-              id="dashboard-btn-logout"
-              onClick={onLogout}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800/55 hover:bg-slate-800 hover:border-slate-600 px-4 py-3 text-sm font-semibold text-slate-300 hover:text-white transition cursor-pointer"
-              title="Sair do Sistema"
-            >
-              <LogOut className="h-4.5 w-4.5" />
-              Logout
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Agendamentos de Hoje */}
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs flex items-center gap-4">
-          <div className="rounded-lg bg-blue-50 p-3 text-blue-600">
-            <CalendarCheck className="h-6 w-6" />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Agendamentos Hoje</p>
-            <h3 className="text-2xl font-bold text-slate-900 mt-1">{agendamentosHojeAtivos.length}</h3>
-            <p className="text-[10px] text-slate-400 mt-0.5">
-              {agendamentosHoje.length - agendamentosHojeAtivos.length} cancelado(s) hoje
-            </p>
-          </div>
-        </div>
-
-        {/* Total de Clientes */}
-        <div className="rounded-xl border border-slate-100 bg-white p-5 shadow-xs flex items-center gap-4">
-          <div className="rounded-lg bg-emerald-50 p-3 text-emerald-600">
-            <Users className="h-6 w-6" />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Clientes</p>
-            <h3 className="text-2xl font-bold text-slate-900 mt-1">{clientes.length}</h3>
-            <p className="text-[10px] text-slate-400 mt-0.5">Clientes cadastrados</p>
-          </div>
-        </div>
-
-        {/* Serviços Disponíveis */}
-        <div className="rounded-xl border border-slate-100 bg-white p-5 shadow-xs flex items-center gap-4">
-          <div className="rounded-lg bg-amber-50 p-3 text-amber-600">
-            <TrendingUp className="h-6 w-6" />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Serviços Ativos</p>
-            <h3 className="text-2xl font-bold text-slate-900 mt-1">{servicos.length}</h3>
-            <p className="text-[10px] text-slate-400 mt-0.5">Portfólio atualizado</p>
-          </div>
-        </div>
-
-        {/* Receita Diária Prevista */}
-        <div className="rounded-xl border border-slate-100 bg-white p-5 shadow-xs flex items-center gap-4">
-          <div className="rounded-lg bg-rose-50 p-3 text-rose-600">
-            <Clock className="h-6 w-6" />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">Faturamento Hoje</p>
-            <h3 className="text-2xl font-bold text-slate-900 mt-1">{formatPreco(faturamentoHoje)}</h3>
-            <p className="text-[10px] text-slate-400 mt-0.5">Soma dos agendamentos ativos</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Grid: Proximos Agendamentos & Destaque */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* List of upcoming bookings */}
-        <div className="lg:col-span-2 rounded-xl border border-slate-100 bg-white p-6 shadow-xs">
-          <div className="flex items-center justify-between gap-4 mb-4">
-            <div>
-              <h3 className="text-base font-bold text-slate-900">Agenda Próxima</h3>
-              <p className="text-xs text-slate-500">Próximos compromissos mais urgentes na agenda ativa</p>
-            </div>
             <button
               id="dashboard-btn-view-all-appointments"
+              type="button"
               onClick={() => onNavigateTo('agendamentos')}
-              className="text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
+              className="btn btn-secondary"
             >
-              Ver Agenda Completa
+              Ver a agenda inteira
             </button>
           </div>
-
-          <div className="space-y-3">
-            {proximosAgendamentos.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center rounded-lg border border-dashed border-slate-200">
-                <Calendar className="h-8 w-8 text-slate-300 stroke-[1.5]" />
-                <p className="mt-3 text-sm font-semibold text-slate-700">Nenhum agendamento futuro</p>
-                <p className="text-xs text-slate-400 mt-1 px-4 max-w-xs">
-                  Sua agenda de agendamentos futuros ou programados para hoje está vazia agora.
-                </p>
-                <button
-                  id="dashboard-btn-create-one"
-                  onClick={() => onNavigateTo('agendamentos', 'novo')}
-                  className="mt-4 rounded-lg bg-blue-50 hover:bg-blue-100/80 px-3.5 py-1.5 text-xs font-bold text-blue-600 transition cursor-pointer"
-                >
-                  Agendar Primeiro Cliente
-                </button>
-              </div>
-            ) : (
-              proximosAgendamentos.map((ag) => {
-                const isToday = ag.data_agendamento === todayStr;
-
-                return (
-                  <div
-                    key={ag.id}
-                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-xl border border-slate-50 bg-slate-50/50 hover:bg-slate-50 transition"
-                  >
-                    <div className="flex items-start gap-3">
-                      {/* Horário & Badge de Hoje */}
-                      <div className="flex flex-col items-center justify-center rounded-lg bg-white border border-slate-100 px-3 py-2 min-w-[70px] shadow-2xs">
-                        <span className="text-xs font-bold text-slate-800">{ag.hora_agendamento}</span>
-                        {isToday ? (
-                          <span className="text-[9px] font-black tracking-widest text-blue-600 uppercase mt-0.5">HOJE</span>
-                        ) : (
-                          <span className="text-[9px] text-slate-400 mt-0.5">
-                            {ag.data_agendamento.split('-').slice(1).reverse().join('/')}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Info de cliente e serviço */}
-                      <div>
-                        <h4 className="text-sm font-bold text-slate-800">
-                          {ag.cliente?.nome || 'Cliente não encontrado'}
-                        </h4>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          {ag.servico?.nome || 'Serviço não encontrado'}
-                        </p>
-                        {ag.observacao && (
-                          <p className="text-[11px] text-slate-400 mt-1 max-w-sm truncate italic">
-                            &ldquo;{ag.observacao}&rdquo;
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Status Badge */}
-                    <div className="flex items-center gap-2 self-end sm:self-center">
-                      <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider
-                        ${ag.status === 'Confirmado' ? 'bg-blue-50 text-blue-700 border border-blue-100' : ''}
-                        ${ag.status === 'Agendado' ? 'bg-amber-50 text-amber-700 border border-amber-100' : ''}
-                        ${ag.status === 'Concluído' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : ''}
-                        ${ag.status === 'Cancelado' ? 'bg-rose-50 text-rose-700 border border-rose-100' : ''}
-                      `}>
-                        <span className={`h-1.5 w-1.5 rounded-full
-                          ${ag.status === 'Confirmado' ? 'bg-blue-500' : ''}
-                          ${ag.status === 'Agendado' ? 'bg-amber-500' : ''}
-                          ${ag.status === 'Concluído' ? 'bg-emerald-500' : ''}
-                          ${ag.status === 'Cancelado' ? 'bg-rose-500' : ''}
-                        `}></span>
-                        {ag.status}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
         </div>
 
-        {/* Business Day Overview & Fast Setup */}
-        <div className="rounded-xl border border-slate-100 bg-white p-6 shadow-xs flex flex-col justify-between gap-4">
-          <div>
-            <h3 className="text-base font-bold text-slate-900">Ações Rápidas</h3>
-            <p className="text-xs text-slate-500">Módulos integrados do Instituto Mentes</p>
-
-            <div className="mt-4 space-y-2.5">
-               <button
-                id="dashboard-card-btn-clientes"
-                onClick={() => onNavigateTo('clientes')}
-                className="w-full flex items-center justify-between p-3 rounded-lg border border-slate-200 hover:border-slate-300 bg-slate-50/20 hover:bg-slate-50 transition text-left cursor-pointer group"
-              >
-                <div>
-                  <h4 className="text-xs font-bold text-slate-800">Gerenciar Crianças/Assistidos</h4>
-                  <p className="text-[10px] text-slate-500 mt-0.5">Cadastre o histórico do aluno e dados dos responsáveis</p>
-                </div>
-                <Users className="h-4 w-4 text-slate-400 group-hover:text-blue-600 transition" />
-              </button>
-
-              <button
-                id="dashboard-card-btn-servicos"
-                onClick={() => onNavigateTo('servicos')}
-                className="w-full flex items-center justify-between p-3 rounded-lg border border-slate-200 hover:border-slate-300 bg-slate-50/20 hover:bg-slate-50 transition text-left cursor-pointer group"
-              >
-                <div>
-                  <h4 className="text-xs font-bold text-slate-800">Gerenciar Terapias</h4>
-                  <p className="text-[10px] text-slate-500 mt-0.5">Ajuste sessões psicopedagógicas, fonoaudiologia e custos sociais</p>
-                </div>
-                <TrendingUp className="h-4 w-4 text-slate-400 group-hover:text-blue-600 transition" />
-              </button>
-            </div>
-          </div>
-
-          <div className="rounded-xl bg-slate-50 p-4 border border-slate-200">
-            <div className="flex items-start gap-3">
-              <Clock className="h-5 w-5 text-blue-500 mt-0.5 shrink-0" />
-              <div>
-                <h5 className="text-xs font-bold text-slate-800">Causa Social Solidária</h5>
-                <p className="text-[11px] text-slate-500 leading-relaxed mt-1">
-                  O projeto é mantido por Mileide e Adenilson com recursos de trabalho externo. Manter a agenda organizada possibilita atender mais famílias na região de Sarandi - PR!
-                </p>
-              </div>
-            </div>
-          </div>
+        <div className="min-w-0 text-[14px] leading-[1.6] text-neutral-800">
+          <div className="mb-2.5 text-[11px] tracking-[0.12em] text-neutral-700 uppercase">Por que isso importa</div>
+          Manter a agenda em dia é o que permite abrir vaga para mais uma família. Cada sessão remarcada com
+          antecedência vira um horário livre para quem está na fila.
         </div>
       </div>
-    </div>
+
+      {/* Números do dia */}
+      <div className="mt-14 grid gap-10 lg:grid-cols-4">
+        {metricas.map((metrica) => (
+          <div key={metrica.rotulo} className="min-w-0">
+            <div className="text-[58px] leading-none font-semibold tracking-[-0.02em]">{metrica.valor}</div>
+            <div className="mt-3.5 text-[13px] tracking-[0.1em] uppercase">{metrica.rotulo}</div>
+            <div className="mt-1 text-[13px] text-neutral-700">{metrica.nota}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-[70px] grid items-start gap-15 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+        {/* Próximas sessões */}
+        <div className="min-w-0">
+          <div className="flex items-baseline justify-between gap-5">
+            <h2 className="m-0 text-[30px]">Quem vem por aí</h2>
+            <button
+              type="button"
+              onClick={() => onNavigateTo('agendamentos')}
+              className="btn btn-ghost shrink-0 text-[13px] whitespace-nowrap"
+            >
+              Agenda completa
+            </button>
+          </div>
+          <div className="mt-3.5 h-px bg-divider" />
+
+          {proximosAgendamentos.length === 0 ? (
+            <div className="max-w-[44ch] py-[46px]">
+              <div className="text-[21px] font-semibold">A agenda está em branco</div>
+              <p className="mt-2 mb-[18px] text-[15px] text-neutral-700">
+                Nenhuma sessão marcada daqui para a frente. Que tal chamar a primeira família da lista de espera?
+              </p>
+              <button
+                id="dashboard-btn-create-one"
+                type="button"
+                onClick={() => onNavigateTo('agendamentos', 'novo')}
+                className="btn btn-secondary"
+              >
+                Marcar a primeira
+              </button>
+            </div>
+          ) : (
+            <ul>
+              {proximosAgendamentos.map((ag) => {
+                const cor = COR_SITUACAO[ag.status];
+                return (
+                  <li key={ag.id} className="flex flex-wrap items-start gap-x-[22px] gap-y-2 border-b border-divider py-5">
+                    <div className="min-w-[86px]">
+                      <div className="text-[24px] leading-none font-bold">{ag.hora_agendamento}</div>
+                      <div
+                        className={`mt-[5px] text-[12px] tracking-[0.08em] uppercase
+                          ${ag.data_agendamento === HOJE ? 'text-accent-700' : 'text-neutral-700'}`}
+                      >
+                        {rotuloDia(ag.data_agendamento)}
+                      </div>
+                    </div>
+
+                    <div className="min-w-[180px] flex-1">
+                      <div className="text-[19px] font-semibold">{ag.cliente?.nome || 'Criança removida'}</div>
+                      <div className="mt-0.5 text-[14px] text-neutral-700">{ag.servico?.nome || 'Terapia removida'}</div>
+                      {ag.observacao && (
+                        <div className="mt-1.5 text-[14px] text-neutral-700 italic">&ldquo;{ag.observacao}&rdquo;</div>
+                      )}
+                    </div>
+
+                    <div className={`flex items-center gap-2 text-[12px] tracking-[0.08em] uppercase ${cor.texto}`}>
+                      <span aria-hidden="true" className={`inline-block size-2 ${cor.marca}`} />
+                      {ag.status}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+
+        {/* Atalhos */}
+        <div className="min-w-0">
+          <h2 className="m-0 text-[24px]">Atalhos</h2>
+          <div className="mt-3.5 h-px bg-divider" />
+          {atalhos.map((atalho) => (
+            <button
+              key={atalho.id}
+              id={atalho.id}
+              type="button"
+              onClick={() => onNavigateTo(atalho.view)}
+              className="block w-full cursor-pointer border-b border-divider py-[18px] text-left hover:bg-neutral-100"
+            >
+              <div className="text-[17px] font-semibold">{atalho.titulo}</div>
+              <div className="mt-[3px] text-[13px] text-neutral-700">{atalho.descricao}</div>
+            </button>
+          ))}
+          <figure className="py-[22px] text-[14px] leading-[1.6] text-neutral-800">
+            <blockquote className="m-0 italic">
+              &ldquo;Enquanto der, a gente atende. O que a agenda organizar, a gente devolve em tempo de brincadeira.&rdquo;
+            </blockquote>
+            <figcaption className="mt-2.5 text-[12px] tracking-[0.1em] text-neutral-700 uppercase">
+              Mileide Martins, fundadora
+            </figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
   );
 }
