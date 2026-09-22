@@ -1,7 +1,8 @@
 /*
  * Broadsheet — design system do SisAgenda.
  *
- * Cópia de design_handoff_sisagenda_rebranding/broadsheet/styles.css (fonte da verdade).
+ * Cópia do broadsheet/styles.css do pacote de handoff do rebranding (fonte da verdade,
+ * mantido fora deste repositório).
  * Os valores não mudam; mudam só dois pontos de montagem:
  *   - os tokens de :root viram @theme do Tailwind, para gerar classes utilitárias
  *     (bg-bg, text-neutral-700, border-divider, rounded-md, shadow-lg…) sem hex solto;
