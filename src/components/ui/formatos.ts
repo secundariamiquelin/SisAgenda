@@ -1,8 +1,15 @@
 // Formatação de datas, valores e situações exibidos na interface.
 import { AgendamentoStatus } from '../../types';
 
-/** Data de referência do sistema: a mesma base dos dados de exemplo em services/db.ts. */
-export const HOJE = '2026-06-12';
+/** Date em AAAA-MM-DD no fuso do navegador (toISOString converteria para UTC). */
+const paraIso = (data: Date) => {
+  const mes = String(data.getMonth() + 1).padStart(2, '0');
+  const dia = String(data.getDate()).padStart(2, '0');
+  return `${data.getFullYear()}-${mes}-${dia}`;
+};
+
+/** Data de hoje no computador de quem usa o sistema, em AAAA-MM-DD. */
+export const hojeIso = () => paraIso(new Date());
 
 /** Converte AAAA-MM-DD em Date ao meio-dia local, longe de viradas de fuso. */
 const comoData = (dataIso: string) => new Date(`${dataIso}T12:00:00`);
@@ -10,19 +17,14 @@ const comoData = (dataIso: string) => new Date(`${dataIso}T12:00:00`);
 const somarDias = (dataIso: string, dias: number) => {
   const data = comoData(dataIso);
   data.setDate(data.getDate() + dias);
-  const mes = String(data.getMonth() + 1).padStart(2, '0');
-  const dia = String(data.getDate()).padStart(2, '0');
-  return `${data.getFullYear()}-${mes}-${dia}`;
+  return paraIso(data);
 };
 
-const AMANHA = somarDias(HOJE, 1);
-const ONTEM = somarDias(HOJE, -1);
-
-/** "Hoje", "Amanhã", "Ontem" ou "DD/MM". */
-export function rotuloDia(dataIso: string) {
-  if (dataIso === HOJE) return 'Hoje';
-  if (dataIso === AMANHA) return 'Amanhã';
-  if (dataIso === ONTEM) return 'Ontem';
+/** "Hoje", "Amanhã", "Ontem" ou "DD/MM", em relação ao dia de hoje informado. */
+export function rotuloDia(dataIso: string, hoje: string) {
+  if (dataIso === hoje) return 'Hoje';
+  if (dataIso === somarDias(hoje, 1)) return 'Amanhã';
+  if (dataIso === somarDias(hoje, -1)) return 'Ontem';
   const [, mes, dia] = dataIso.split('-');
   return `${dia}/${mes}`;
 }

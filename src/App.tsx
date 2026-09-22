@@ -7,7 +7,8 @@ import ClientesView from './components/ClientesView';
 import ServicosView from './components/ServicosView';
 import AgendamentosView from './components/AgendamentosView';
 import ConfirmModal from './components/ConfirmModal';
-import { HOJE, dataCompleta, dataPorExtenso } from './components/ui/formatos';
+import { dataCompleta, dataPorExtenso } from './components/ui/formatos';
+import { useHoje } from './components/ui/useHoje';
 import { usePainelModal } from './components/ui/usePainelModal';
 import { CheckCircle, List, WarningCircle, X } from '@phosphor-icons/react';
 
@@ -55,6 +56,9 @@ export default function App() {
     message: '',
     onConfirm: () => {}
   });
+
+  // Dia de hoje no computador do cliente; muda sozinho à meia-noite
+  const hoje = useHoje();
 
   const fecharIndice = () => setIsMobileSidebarOpen(false);
   const indiceRef = usePainelModal<HTMLDivElement>(isMobileSidebarOpen, fecharIndice);
@@ -300,7 +304,7 @@ export default function App() {
           </div>
 
           <div className="flex flex-wrap items-center gap-x-[18px] gap-y-1 text-[12px] text-neutral-700">
-            <span>{dataPorExtenso(HOJE)}</span>
+            <span>{dataPorExtenso(hoje)}</span>
             <span aria-hidden="true" className="text-neutral-400">|</span>
             <span>{currentUser.email}</span>
             <button id="sidebar-logout-btn" type="button" onClick={handleLogout} className="btn btn-ghost text-[12px]">
@@ -358,6 +362,7 @@ export default function App() {
               agendamentos={agendamentos}
               clientes={clientes}
               servicos={servicos}
+              hoje={hoje}
               onNavigateTo={handleNavigateFromDashboard}
               userEmail={currentUser.email}
             />
@@ -386,6 +391,7 @@ export default function App() {
               agendamentos={agendamentos}
               clientes={clientes}
               servicos={servicos}
+              hoje={hoje}
               onSalvar={handleSalvarAgendamento}
               onMudarSituacao={handleMudarSituacao}
               onExcluir={handleExcluirAgendamento}

@@ -6,12 +6,14 @@ import Dialogo from './ui/Dialogo';
 import Paginacao from './ui/Paginacao';
 import AcoesLinha from './ui/AcoesLinha';
 import EstadoVazio from './ui/EstadoVazio';
-import { COR_SITUACAO, HOJE, SITUACOES, formatarContribuicao, plural, rotuloDia } from './ui/formatos';
+import { COR_SITUACAO, SITUACOES, formatarContribuicao, plural, rotuloDia } from './ui/formatos';
 
 interface AgendamentosViewProps {
   agendamentos: Agendamento[];
   clientes: Cliente[];
   servicos: Servico[];
+  /** Dia de hoje em AAAA-MM-DD. */
+  hoje: string;
   onSalvar: (agendamento: Partial<Agendamento> & {
     cliente_id: string;
     servico_id: string;
@@ -32,6 +34,7 @@ export default function AgendamentosView({
   agendamentos,
   clientes,
   servicos,
+  hoje,
   onSalvar,
   onMudarSituacao,
   onExcluir,
@@ -47,7 +50,7 @@ export default function AgendamentosView({
   // Form fields
   const [clienteId, setClienteId] = useState('');
   const [servicoId, setServicoId] = useState('');
-  const [dataAgendamento, setDataAgendamento] = useState(HOJE);
+  const [dataAgendamento, setDataAgendamento] = useState(hoje);
   const [horaAgendamento, setHoraAgendamento] = useState('09:00');
   const [observacao, setObservacao] = useState('');
   const [status, setStatus] = useState<AgendamentoStatus>('Agendado');
@@ -109,7 +112,7 @@ export default function AgendamentosView({
       // Pega o primeiro cliente/serviço por padrão, se houver
       setClienteId(clientes.length > 0 ? clientes[0].id : '');
       setServicoId(servicos.length > 0 ? servicos[0].id : '');
-      setDataAgendamento(HOJE);
+      setDataAgendamento(hoje);
       setHoraAgendamento('09:00');
       setObservacao('');
       setStatus('Agendado');
@@ -244,9 +247,9 @@ export default function AgendamentosView({
                       <td>
                         <div className="text-[18px] font-bold">{ag.hora_agendamento}</div>
                         <div
-                          className={`mt-0.5 text-[12px] ${ag.data_agendamento === HOJE ? 'text-accent-700' : 'text-neutral-700'}`}
+                          className={`mt-0.5 text-[12px] ${ag.data_agendamento === hoje ? 'text-accent-700' : 'text-neutral-700'}`}
                         >
-                          {rotuloDia(ag.data_agendamento)}
+                          {rotuloDia(ag.data_agendamento, hoje)}
                         </div>
                       </td>
                       <td>

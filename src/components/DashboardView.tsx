@@ -1,11 +1,13 @@
 import React from 'react';
 import { Agendamento, Cliente, Servico, AppView } from '../types';
-import { COR_SITUACAO, HOJE, plural, rotuloDia } from './ui/formatos';
+import { COR_SITUACAO, plural, rotuloDia } from './ui/formatos';
 
 interface DashboardViewProps {
   agendamentos: Agendamento[];
   clientes: Cliente[];
   servicos: Servico[];
+  /** Dia de hoje em AAAA-MM-DD. */
+  hoje: string;
   onNavigateTo: (view: AppView, action?: string) => void;
   userEmail: string;
 }
@@ -21,24 +23,25 @@ export default function DashboardView({
   agendamentos,
   clientes,
   servicos,
+  hoje,
   onNavigateTo,
   userEmail
 }: DashboardViewProps) {
   // Sessões de hoje que ainda contam (canceladas não entram)
-  const agendamentosHojeAtivos = agendamentos.filter(a => a.data_agendamento === HOJE && a.status !== 'Cancelado');
+  const agendamentosHojeAtivos = agendamentos.filter(a => a.data_agendamento === hoje && a.status !== 'Cancelado');
 
   // Próximas sessões: de hoje em diante, sem as canceladas, já ordenadas por data e hora
   const proximosAgendamentos = agendamentos
     .filter(a => {
       const dataHoraStr = `${a.data_agendamento}T${a.hora_agendamento}:00`;
       const dataHora = new Date(dataHoraStr);
-      const referencia = new Date(`${HOJE}T00:00:00`);
+      const referencia = new Date(`${hoje}T00:00:00`);
       return dataHora >= referencia && a.status !== 'Cancelado';
     })
     .slice(0, 4);
 
-  // Sessões concluídas no mês da data de referência
-  const mesReferencia = HOJE.slice(0, 7);
+  // Sessões concluídas no mês corrente
+  const mesReferencia = hoje.slice(0, 7);
   const concluidasNoMes = agendamentos.filter(
     a => a.status === 'Concluído' && a.data_agendamento.startsWith(mesReferencia)
   ).length;
@@ -158,9 +161,9 @@ export default function DashboardView({
                       <div className="text-[24px] leading-none font-bold">{ag.hora_agendamento}</div>
                       <div
                         className={`mt-[5px] text-[12px] tracking-[0.08em] uppercase
-                          ${ag.data_agendamento === HOJE ? 'text-accent-700' : 'text-neutral-700'}`}
+                          ${ag.data_agendamento === hoje ? 'text-accent-700' : 'text-neutral-700'}`}
                       >
-                        {rotuloDia(ag.data_agendamento)}
+                        {rotuloDia(ag.data_agendamento, hoje)}
                       </div>
                     </div>
 
