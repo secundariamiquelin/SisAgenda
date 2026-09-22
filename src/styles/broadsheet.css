@@ -7,9 +7,9 @@
  *     (bg-bg, text-neutral-700, border-divider, rounded-md, shadow-lg…) sem hex solto;
  *   - a camada de componentes fica em @layer components, para que as classes
  *     utilitárias continuem vencendo (CSS sem layer venceria todas elas).
- * Ficam de fora o @import da fonte (index.css carrega a versão variável) e os
- * tratamentos de impressão (.halftone, .cmyk, .cmyk-num, .cmyk-head e a tinta
- * --color-process-yellow), que o app não usa e dependem do print-plates.js.
+ * O @import da fonte foi para o topo de index.css (CSS só aceita @import no início).
+ * Ficam de fora os tratamentos de impressão (.halftone, .cmyk, .cmyk-num, .cmyk-head
+ * e a tinta --color-process-yellow), que o app não usa e dependem do print-plates.js.
  */
 
 @theme static {
