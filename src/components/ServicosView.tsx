@@ -1,7 +1,12 @@
 import React, { useState } from 'react';
 import { Servico } from '../types';
-import { Search, PlusCircle, Edit2, Trash2, X, TrendingUp, AlertCircle, RefreshCw, ChevronLeft, ChevronRight, Clock, DollarSign } from 'lucide-react';
+import { X, AlertCircle, Clock, DollarSign } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import CabecalhoPagina from './ui/CabecalhoPagina';
+import Paginacao from './ui/Paginacao';
+import AcoesLinha from './ui/AcoesLinha';
+import EstadoVazio from './ui/EstadoVazio';
+import { formatarContribuicao, plural } from './ui/formatos';
 
 interface ServicosViewProps {
   servicos: Servico[];
@@ -44,10 +49,13 @@ export default function ServicosView({
   });
 
   const totalPages = Math.ceil(filteredServicos.length / itemsPerPage) || 1;
+  // Depois de uma exclusão a página atual pode deixar de existir
+  const paginaAtual = Math.min(currentPage, totalPages);
   const paginatedServicos = filteredServicos.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    (paginaAtual - 1) * itemsPerPage,
+    paginaAtual * itemsPerPage
   );
+  const quantidade = plural(filteredServicos.length, 'modalidade oferecida', 'modalidades oferecidas');
 
   const openRegisterModal = (servico?: Servico) => {
     if (servico) {
@@ -106,145 +114,85 @@ export default function ServicosView({
     }
   };
 
-  // Formata preço em BRL
-  const formatPreco = (val: number) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
-  };
-
   return (
-    <div id="servicos-view-root" className="space-y-6">
-      {/* Top Controls Layout */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">Terapias & Atendimentos</h2>
-          <p className="text-xs text-slate-500">Defina as especialidades de atendimento oferecidas, duração média das sessões e custos simbólicos/sociais</p>
-        </div>
+    <section id="servicos-view-root" className="pt-11">
+      <CabecalhoPagina
+        titulo="As terapias"
+        descricao="O que o instituto oferece, quanto dura cada sessão e o valor simbólico cobrado."
+        acao={
+          <button id="btn-cadastrar-servico" type="button" onClick={() => openRegisterModal()} className="btn btn-primary">
+            Cadastrar terapia
+          </button>
+        }
+      />
 
-        <button
-          id="btn-cadastrar-servico"
-          onClick={() => openRegisterModal()}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-500/10 transition cursor-pointer"
-        >
-          <PlusCircle className="h-4 w-4" />
-          Cadastrar Terapia
-        </button>
+      <div className="mt-[34px] flex justify-end border-b border-divider pb-3">
+        <input
+          id="input-pesquisar-servicos"
+          type="text"
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setCurrentPage(1); // Reset page on filter
+          }}
+          aria-label="Buscar terapia"
+          placeholder="Buscar terapia…"
+          className="input sm:w-auto sm:min-w-[320px]"
+        />
       </div>
 
-      {/* Search Bar & Table Card */}
-      <div className="rounded-xl border border-slate-100 bg-white shadow-2xs overflow-hidden">
-        {/* Search */}
-        <div className="p-4 border-b border-slate-100 bg-slate-50/20">
-          <div className="relative max-w-md">
-            <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
-              <Search className="h-4 w-4" />
-            </span>
-            <input
-              id="input-pesquisar-servicos"
-              type="text"
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setCurrentPage(1); // Reset page on filter
-              }}
-              placeholder="Pesquisar por nome de serviço, preço, minutos..."
-              className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg bg-white placeholder-slate-400 focus:outline-hidden focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition"
-            />
-          </div>
-        </div>
-
-        {/* Loading and Empty States */}
-        {carregando ? (
-          <div className="flex flex-col items-center justify-center py-16 text-slate-500">
-            <RefreshCw className="h-8 w-8 animate-spin text-blue-600 mb-3" />
-            <p className="text-xs">Buscando lista de serviços...</p>
-          </div>
-        ) : filteredServicos.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="rounded-full bg-slate-50 p-4 text-slate-300 mb-3">
-              <TrendingUp className="h-8 w-8 stroke-[1.5]" />
-            </div>
-            <h4 className="text-sm font-bold text-slate-700">Nenhum serviço disponível</h4>
-            <p className="text-xs text-slate-400 max-w-sm mt-1 px-4">
-              {search ? 'Nenhum serviço atende aos critérios da sua pesquisa.' : 'Adicione seu primeiro serviço clicando no botão para compor sua lista de agendamentos.'}
-            </p>
-          </div>
+      {carregando ? (
+        <p role="status" className="py-[70px] text-[15px] text-neutral-700">Carregando as terapias…</p>
+      ) : filteredServicos.length === 0 ? (
+        search ? (
+          <EstadoVazio titulo="Nada encontrado" texto="Nenhuma terapia corresponde à busca. Tente outro termo." />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+          <EstadoVazio
+            titulo="Nenhuma terapia cadastrada"
+            texto="Cadastre as modalidades que o instituto oferece para poder marcar as sessões."
+          />
+        )
+      ) : (
+        <>
+          <div className="mt-2 overflow-x-auto">
+            <table className="table min-w-[520px]">
               <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/50 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  <th className="px-6 py-4">Nome do Serviço</th>
-                  <th className="px-6 py-4">Duração</th>
-                  <th className="px-6 py-4">Preço</th>
-                  <th className="px-6 py-4 text-right">Ações</th>
+                <tr>
+                  <th>Modalidade</th>
+                  <th>Duração</th>
+                  <th>Contribuição</th>
+                  <th className="text-right">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
+              <tbody>
                 {paginatedServicos.map((servico) => (
-                  <tr key={servico.id} className="hover:bg-slate-50/40 transition">
-                    <td className="px-6 py-4 font-semibold text-slate-900">{servico.nome}</td>
-                    <td className="px-6 py-4">
-                      <span className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
-                        <Clock className="h-3 w-3 text-slate-400" />
-                        {servico.duracao_minutos} minutos
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 font-bold text-blue-600">{formatPreco(servico.preco)}</td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          id={`btn-editar-servico-${servico.id}`}
-                          onClick={() => openRegisterModal(servico)}
-                          className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-blue-600 transition"
-                          title="Editar"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </button>
-                        <button
-                          id={`btn-excluir-servico-${servico.id}`}
-                          onClick={() => onExcluir(servico.id)}
-                          className="rounded-lg p-1.5 text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition"
-                          title="Excluir"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
+                  <tr key={servico.id} className="hover:bg-neutral-100">
+                    <td className="text-[17px] font-semibold">{servico.nome}</td>
+                    <td>{servico.duracao_minutos} minutos</td>
+                    <td>{formatarContribuicao(servico.preco)}</td>
+                    <td>
+                      <AcoesLinha
+                        descricao={servico.nome}
+                        idEditar={`btn-editar-servico-${servico.id}`}
+                        idExcluir={`btn-excluir-servico-${servico.id}`}
+                        onEditar={() => openRegisterModal(servico)}
+                        onExcluir={() => onExcluir(servico.id)}
+                      />
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-
-            {/* Pagination Controls */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between border-t border-slate-100 bg-white px-6 py-4 text-xs text-slate-500">
-                <span>
-                  Exibindo página <strong>{currentPage}</strong> de <strong>{totalPages}</strong> (
-                  Total de <strong>{filteredServicos.length}</strong> serviços)
-                </span>
-                <div className="flex items-center gap-1">
-                  <button
-                    id="pagination-prev"
-                    disabled={currentPage === 1}
-                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                    className="rounded-md border border-slate-200 p-1.5 hover:bg-slate-50 disabled:opacity-40 transition cursor-pointer"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <button
-                    id="pagination-next"
-                    disabled={currentPage === totalPages}
-                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                    className="rounded-md border border-slate-200 p-1.5 hover:bg-slate-50 disabled:opacity-40 transition cursor-pointer"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
-        )}
-      </div>
+
+          <Paginacao
+            resumo={totalPages > 1 ? `Página ${paginaAtual} de ${totalPages} · ${quantidade}` : quantidade}
+            pagina={paginaAtual}
+            totalPaginas={totalPages}
+            onMudarPagina={setCurrentPage}
+          />
+        </>
+      )}
 
       {/* Create / Edit Modal */}
       <AnimatePresence>
@@ -361,6 +309,6 @@ export default function ServicosView({
           </div>
         )}
       </AnimatePresence>
-    </div>
+    </section>
   );
 }
