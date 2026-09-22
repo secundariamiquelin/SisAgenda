@@ -1,28 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AppView, Cliente, Servico, Agendamento, AuthUser } from './types';
 import { DbService } from './services/db';
-import { isSupabaseConfigured } from './supabaseClient';
 import LoginView from './components/LoginView';
 import DashboardView from './components/DashboardView';
 import ClientesView from './components/ClientesView';
 import ServicosView from './components/ServicosView';
 import AgendamentosView from './components/AgendamentosView';
 import ConfirmModal from './components/ConfirmModal';
-import {
-  Calendar,
-  Users,
-  TrendingUp,
-  LogOut,
-  Menu,
-  X,
-  Sparkles,
-  LayoutDashboard,
-  CheckCircle,
-  AlertCircle,
-  Database,
-  CalendarCheck
-} from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { HOJE, dataCompleta, dataPorExtenso } from './components/ui/formatos';
+import { usePainelModal } from './components/ui/usePainelModal';
+import { CheckCircle, List, WarningCircle, X } from '@phosphor-icons/react';
+
+const INSTITUTO = 'Instituto Mentes em Desenvolvimento';
+
+// Itens do índice, na ordem em que aparecem no cabeçalho e no drawer.
+const INDICE: { id: AppView; rotulo: string }[] = [
+  { id: 'dashboard', rotulo: 'Painel' },
+  { id: 'agendamentos', rotulo: 'Agenda' },
+  { id: 'clientes', rotulo: 'Crianças' },
+  { id: 'servicos', rotulo: 'Terapias' },
+];
 
 export default function App() {
   // Autenticação
@@ -44,6 +41,7 @@ export default function App() {
 
   // Mensagens globais (Erros e Sucessos)
   const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const alertTimer = useRef<number | undefined>(undefined);
 
   // Modal de Confirmação de Deleção
   const [confirmDelete, setConfirmDelete] = useState<{
@@ -57,6 +55,9 @@ export default function App() {
     message: '',
     onConfirm: () => {}
   });
+
+  const fecharIndice = () => setIsMobileSidebarOpen(false);
+  const indiceRef = usePainelModal<HTMLDivElement>(isMobileSidebarOpen, fecharIndice);
 
   // 1. Verificar autenticação na montagem
   useEffect(() => {
@@ -80,6 +81,9 @@ export default function App() {
     }
   }, [currentUser]);
 
+  // Cancela o sumiço agendado do alerta se o app for desmontado
+  useEffect(() => () => window.clearTimeout(alertTimer.current), []);
+
   // Função centralizada para recarga de tabelas
   const carregarTodosOsDados = async () => {
     try {
@@ -94,16 +98,17 @@ export default function App() {
       setServicos(listaServicos);
       setAgendamentos(listaAgendamentos);
     } catch (err: any) {
-      mostrarAlert('error', `Falha ao sincronizar dados com o banco: ${err.message}`);
+      mostrarAlert('error', `Não deu para carregar os dados: ${err.message}`);
     } finally {
       setLoadingData(false);
     }
   };
 
-  // Helper para acionar banners de feedback
+  // Helper para acionar a barra de alerta; cada alerta novo fica os 5s inteiros
   const mostrarAlert = (type: 'success' | 'error', message: string) => {
     setAlert({ type, message });
-    setTimeout(() => setAlert(null), 5000);
+    window.clearTimeout(alertTimer.current);
+    alertTimer.current = window.setTimeout(() => setAlert(null), 5000);
   };
 
   // 3. Handlers para Clientes (Salvar / Excluir)
@@ -111,9 +116,9 @@ export default function App() {
     try {
       await DbService.salvarCliente(cliente);
       await carregarTodosOsDados();
-      mostrarAlert('success', `Cliente "${cliente.nome}" salvo com sucesso.`);
+      mostrarAlert('success', `Cadastro de ${cliente.nome} salvo.`);
     } catch (err: any) {
-      mostrarAlert('error', `Erro ao salvar cliente: ${err.message}`);
+      mostrarAlert('error', `Não deu para salvar o cadastro: ${err.message}`);
       throw err;
     }
   };
@@ -124,15 +129,15 @@ export default function App() {
 
     setConfirmDelete({
       isOpen: true,
-      title: 'Excluir Cliente?',
-      message: `Tem certeza que deseja excluir o cliente "${cliente.nome}"? Esta ação removerá permanentemente todos os dados e agendamentos relacionados deste cliente.`,
+      title: `Excluir ${cliente.nome}?`,
+      message: 'O cadastro e todas as sessões dessa criança saem do sistema. Não dá para recuperar depois.',
       onConfirm: async () => {
         try {
           await DbService.excluirCliente(id);
           await carregarTodosOsDados();
-          mostrarAlert('success', 'Cliente excluído com sucesso.');
+          mostrarAlert('success', `Cadastro de ${cliente.nome} removido.`);
         } catch (err: any) {
-          mostrarAlert('error', `Falha ao excluir cliente: ${err.message}`);
+          mostrarAlert('error', `Não deu para remover o cadastro: ${err.message}`);
         } finally {
           fecharConfirmModal();
         }
@@ -145,9 +150,9 @@ export default function App() {
     try {
       await DbService.salvarServico(servico);
       await carregarTodosOsDados();
-      mostrarAlert('success', `Serviço "${servico.nome}" salvo com sucesso.`);
+      mostrarAlert('success', 'Terapia salva.');
     } catch (err: any) {
-      mostrarAlert('error', `Erro ao salvar serviço: ${err.message}`);
+      mostrarAlert('error', `Não deu para salvar a terapia: ${err.message}`);
       throw err;
     }
   };
@@ -158,15 +163,15 @@ export default function App() {
 
     setConfirmDelete({
       isOpen: true,
-      title: 'Excluir Serviço?',
-      message: `Tem certeza que deseja excluir o serviço "${servico.nome}"? Esta ação removerá todos os agendamentos registrados para este serviço.`,
+      title: `Excluir ${servico.nome}?`,
+      message: 'As sessões marcadas nessa modalidade também saem da agenda.',
       onConfirm: async () => {
         try {
           await DbService.excluirServico(id);
           await carregarTodosOsDados();
-          mostrarAlert('success', 'Serviço excluído da tabela com sucesso.');
+          mostrarAlert('success', 'Terapia removida da lista.');
         } catch (err: any) {
-          mostrarAlert('error', `Falha ao excluir serviço: ${err.message}`);
+          mostrarAlert('error', `Não deu para remover a terapia: ${err.message}`);
         } finally {
           fecharConfirmModal();
         }
@@ -185,9 +190,9 @@ export default function App() {
     try {
       await DbService.salvarAgendamento(agendamento);
       await carregarTodosOsDados();
-      mostrarAlert('success', 'Agendamento salvo com sucesso na agenda.');
+      mostrarAlert('success', 'Sessão salva na agenda.');
     } catch (err: any) {
-      mostrarAlert('error', `Erro ao registrar horário: ${err.message}`);
+      mostrarAlert('error', `Não deu para salvar a sessão: ${err.message}`);
       throw err;
     }
   };
@@ -196,19 +201,19 @@ export default function App() {
     const ag = agendamentos.find(a => a.id === id);
     if (!ag) return;
 
-    const clienteNome = ag.cliente?.nome || 'Cliente';
+    const clienteNome = ag.cliente?.nome || 'essa criança';
 
     setConfirmDelete({
       isOpen: true,
-      title: 'Excluir Agendamento?',
-      message: `Deseja cancelar e remover permanentemente o horário de "${clienteNome}" no dia ${ag.data_agendamento.split('-').reverse().join('/')} às ${ag.hora_agendamento}?`,
+      title: `Excluir a sessão de ${clienteNome}?`,
+      message: `O horário de ${ag.hora_agendamento} em ${dataCompleta(ag.data_agendamento)} sai da agenda e não dá para desfazer.`,
       onConfirm: async () => {
         try {
           await DbService.excluirAgendamento(id);
           await carregarTodosOsDados();
-          mostrarAlert('success', 'Agendamento deletado da agenda.');
+          mostrarAlert('success', 'Sessão removida da agenda.');
         } catch (err: any) {
-          mostrarAlert('error', `Falha ao deletar agendamento: ${err.message}`);
+          mostrarAlert('error', `Não deu para remover a sessão: ${err.message}`);
         } finally {
           fecharConfirmModal();
         }
@@ -225,7 +230,8 @@ export default function App() {
       await DbService.logout();
       setCurrentUser(null);
       setActiveView('dashboard');
-      mostrarAlert('success', 'Sistema desconectado.');
+      setIsMobileSidebarOpen(false);
+      mostrarAlert('success', 'Você saiu da conta.');
     } catch (err) {
       console.error(err);
     }
@@ -242,9 +248,9 @@ export default function App() {
   // Renderizador de tela baseado na autenticação
   if (checkingAuth) {
     return (
-      <div id="loader-screen" className="min-h-screen w-full flex flex-col items-center justify-center bg-slate-950 font-sans">
-        <Calendar className="h-10 w-10 text-blue-500 animate-pulse mb-4" />
-        <p className="text-sm font-semibold text-slate-300">Carregando sistema de agendamento...</p>
+      <div id="loader-screen" className="mx-auto max-w-[1180px] px-5 pt-[30px] md:px-10">
+        <div className="text-[40px] leading-none font-bold tracking-[-0.03em]">SisAgenda</div>
+        <p role="status" className="mt-3 text-[13px] text-neutral-700">Abrindo a agenda…</p>
       </div>
     );
   }
@@ -253,147 +259,81 @@ export default function App() {
     return <LoginView onLoginSuccess={(val) => setCurrentUser(val)} />;
   }
 
-  // Lista dos Menus de Navegacao Lateral
-  const navigationItems = [
-    { id: 'dashboard' as AppView, label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'agendamentos' as AppView, label: 'Agendamentos', icon: CalendarCheck },
-    { id: 'clientes' as AppView, label: 'Clientes', icon: Users },
-    { id: 'servicos' as AppView, label: 'Serviços', icon: TrendingUp },
-  ];
-
   return (
-    <div id="app-viewport-root" className="min-h-screen flex bg-slate-50 font-sans text-slate-800">
-      {/* Sidebar - Desktop Layout */}
-      <aside className="hidden lg:flex flex-col w-64 bg-slate-900 border-r border-slate-800 text-slate-300 shrink-0 font-sans">
-        {/* Brand Header */}
-        <div className="flex items-center gap-3 px-6 py-6 border-b border-slate-800/80">
-          <div className="rounded-lg bg-blue-600 p-2 text-white shadow-md shadow-blue-600/10">
-            <Calendar className="h-5 w-5" />
+    <div id="app-viewport-root" className="min-h-screen">
+      <div className="mx-auto max-w-[1180px] px-5 pt-[30px] pb-[70px] md:px-10">
+        {/* Cabeçalho editorial: marca à esquerda, data e conta à direita */}
+        <header className="flex flex-wrap items-end justify-between gap-[30px]">
+          <div className="flex min-w-0 items-end gap-4">
+            <button
+              id="mobile-sidebar-toggle"
+              type="button"
+              onClick={() => setIsMobileSidebarOpen(true)}
+              aria-label="Abrir índice"
+              className="cursor-pointer px-0.5 pb-2 text-neutral-700 hover:text-accent-700"
+            >
+              <List size={22} aria-hidden="true" />
+            </button>
+            <div className="min-w-0">
+              <div className="text-[40px] leading-none font-bold tracking-[-0.03em]">SisAgenda</div>
+              <div className="mt-[7px] text-[12px] tracking-[0.1em] text-neutral-700 uppercase">{INSTITUTO}</div>
+            </div>
           </div>
-          <div>
-            <h1 className="text-white text-base font-bold tracking-tight">SISAGENDA</h1>
-            <p className="text-[10px] text-slate-400 font-medium">Dashboard Administrativo</p>
-          </div>
-        </div>
 
-        {/* Navigation Tabs */}
-        <nav className="flex-1 px-4 py-6 space-y-1.5">
-          {navigationItems.map((item) => {
-            const IconComponent = item.icon;
-            const isActive = activeView === item.id;
+          <div className="flex flex-wrap items-center gap-x-[18px] gap-y-1 text-[12px] text-neutral-700">
+            <span>{dataPorExtenso(HOJE)}</span>
+            <span aria-hidden="true" className="text-neutral-400">|</span>
+            <span>{currentUser.email}</span>
+            <button id="sidebar-logout-btn" type="button" onClick={handleLogout} className="btn btn-ghost text-[12px]">
+              Sair
+            </button>
+          </div>
+        </header>
+
+        {/* Índice horizontal; abaixo de 768px o drawer assume a navegação */}
+        <nav aria-label="Índice" className="hidden flex-wrap gap-7 pt-[22px] pb-[13px] md:flex">
+          {INDICE.map((item) => {
+            const ativo = activeView === item.id;
             return (
               <button
                 key={item.id}
                 id={`sidebar-nav-${item.id}`}
+                type="button"
+                aria-current={ativo ? 'page' : undefined}
                 onClick={() => setActiveView(item.id)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all cursor-pointer
-                  ${isActive
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
-                    : 'hover:bg-slate-800/60 hover:text-white text-slate-400'
-                  }`}
+                className={`cursor-pointer border-b-2 pb-[3px] text-[14px] tracking-[0.1em] uppercase hover:text-accent-700
+                  ${ativo ? 'border-accent text-text' : 'border-transparent text-neutral-700'}`}
               >
-                <IconComponent className={`h-4.5 w-4.5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                <span>{item.label}</span>
+                {item.rotulo}
               </button>
             );
           })}
         </nav>
 
-        {/* Sidebar Footer User detail */}
-        <div className="px-4 py-5 border-t border-slate-800/50 bg-slate-950/40">
-          <div className="flex flex-col gap-2">
-            <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Acesso Logado</div>
-            <div className="text-xs text-slate-300 font-semibold truncate" title={currentUser.email}>
-              {currentUser.email}
-            </div>
+        <div className="mt-[22px] h-px bg-divider md:mt-0" />
 
-            <button
-              id="sidebar-logout-btn"
-              onClick={handleLogout}
-              className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-slate-800 border border-slate-700/60 py-2.5 text-xs font-bold text-slate-300 hover:text-white transition cursor-pointer"
-            >
-              <LogOut className="h-4 w-4" />
-              Sair do Sistema
-            </button>
-          </div>
-        </div>
-      </aside>
-
-      {/* Main Content Pane */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Navigation Bar - Mobile and Desktop Header */}
-        <header className="bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between gap-4 sticky top-0 z-30 shadow-xs">
-          {/* Brand/Nav toggle for small devices */}
-          <div className="flex items-center gap-3">
-            <button
-              id="mobile-sidebar-toggle"
-              onClick={() => setIsMobileSidebarOpen(true)}
-              className="lg:hidden rounded-lg border border-slate-200 bg-white p-2 text-slate-600 hover:bg-slate-50 transition shrink-0 cursor-pointer"
-            >
-              <Menu className="h-5 w-5" />
-            </button>
-
-            <span className="text-sm font-bold text-slate-800 tracking-tight lg:hidden flex items-center gap-2">
-              <Calendar className="h-4.5 w-4.5 text-blue-600" />
-              <span>SISAGENDA</span>
-            </span>
-
-            <span className="hidden lg:inline text-xs font-semibold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full">
-              {activeView === 'dashboard' && 'Visão Geral do Negócio'}
-              {activeView === 'agendamentos' && 'Sincronizador de Agenda'}
-              {activeView === 'clientes' && 'Carteira de Clientes'}
-              {activeView === 'servicos' && 'Tabela de Serviços'}
-            </span>
-          </div>
-
-          {/* Database Synchronization Indicator */}
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-              <Database className="h-3.5 w-3.5" />
-              <span>Banco de dados:</span>
-              <span className={`font-bold uppercase tracking-wider rounded px-1.5 py-0.5 text-[9px]
-                ${isSupabaseConfigured ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
-                {isSupabaseConfigured ? 'Supabase' : 'Offline local'}
-              </span>
-            </div>
-
-            <span className="font-mono text-xs text-slate-400 border border-slate-200/60 rounded-md px-2 py-1 bg-slate-50">
-              12/06/2026 {/* Base date */}
-            </span>
-          </div>
-        </header>
-
-        {/* Global Feedback Alert Box */}
-        <AnimatePresence>
+        {/* Barra de alerta global: uma linha de texto, some sozinha em 5s */}
+        <div aria-live="polite">
           {alert && (
-            <div className="px-6 pt-6">
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className={`p-4 rounded-xl shadow-xs border flex items-start gap-3 text-xs leading-relaxed font-bold
-                  ${alert.type === 'success'
-                    ? 'bg-emerald-50 border-emerald-100 text-emerald-800'
-                    : 'bg-rose-50 border-rose-100 text-rose-800'
-                  }`}
+            <div className="flex items-start gap-3 border-b border-divider py-4 text-[14px]">
+              {alert.type === 'success' ? (
+                <CheckCircle size={20} className="mt-px shrink-0 text-accent" aria-hidden="true" />
+              ) : (
+                <WarningCircle size={20} className="mt-px shrink-0 text-accent-2" aria-hidden="true" />
+              )}
+              <span className="flex-1">{alert.message}</span>
+              <button
+                type="button"
+                onClick={() => setAlert(null)}
+                className="cursor-pointer text-neutral-700 hover:text-accent-700"
               >
-                {alert.type === 'success' ? (
-                  <CheckCircle className="h-4.5 w-4.5 shrink-0 text-emerald-600 mt-0.5" />
-                ) : (
-                  <AlertCircle className="h-4.5 w-4.5 shrink-0 text-rose-600 mt-0.5" />
-                )}
-                <div className="flex-1">{alert.message}</div>
-                <button onClick={() => setAlert(null)} className="opacity-50 hover:opacity-100 cursor-pointer">
-                  <X className="h-4 w-4" />
-                </button>
-              </motion.div>
+                Fechar
+              </button>
             </div>
           )}
-        </AnimatePresence>
+        </div>
 
-        {/* Primary Page Canvas */}
-        <main className="flex-1 p-6 max-w-7xl w-full mx-auto">
-          {/* Render Views dynamically */}
+        <main>
           {activeView === 'dashboard' && (
             <DashboardView
               agendamentos={agendamentos}
@@ -438,86 +378,66 @@ export default function App() {
         </main>
       </div>
 
-      {/* Mobile Drawer Navigation Sidebar */}
-      <AnimatePresence>
-        {isMobileSidebarOpen && (
-          <div id="mobile-sidebar-root" className="fixed inset-0 z-50 flex lg:hidden">
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsMobileSidebarOpen(false)}
-              className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs"
-            />
+      {/* Drawer do índice: claro, à esquerda, aberto pelo ícone de lista */}
+      {isMobileSidebarOpen && (
+        <div id="mobile-sidebar-root" className="fixed inset-0 z-60 flex">
+          <div className="absolute inset-0 bg-text/45" onClick={fecharIndice} aria-hidden="true" />
 
-            {/* Panel */}
-            <motion.div
-              initial={{ x: '-100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
-              transition={{ type: 'tween', duration: 0.3 }}
-              className="relative flex flex-col w-72 bg-slate-900 text-slate-300 p-6 z-10"
-            >
+          <div
+            ref={indiceRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Índice"
+            tabIndex={-1}
+            className="relative flex w-[320px] max-w-[86vw] flex-col gap-[26px] bg-bg px-[30px] py-[34px] shadow-lg outline-none"
+          >
+            <div className="flex items-start justify-between gap-3.5">
+              <div>
+                <div className="text-[28px] leading-none font-bold">SisAgenda</div>
+                <div className="mt-1.5 text-[11px] tracking-[0.1em] text-neutral-700 uppercase">Índice</div>
+              </div>
               <button
                 id="close-mobile-sidebar"
-                onClick={() => setIsMobileSidebarOpen(false)}
-                className="absolute top-4 right-4 rounded-lg bg-slate-800 p-1.5 text-slate-400 hover:text-white cursor-pointer"
+                type="button"
+                onClick={fecharIndice}
+                aria-label="Fechar índice"
+                className="cursor-pointer text-neutral-700 hover:text-accent-700"
               >
-                <X className="h-5 w-5" />
+                <X size={22} aria-hidden="true" />
               </button>
+            </div>
 
-              <div className="flex items-center gap-3 pb-6 border-b border-slate-800">
-                <div className="rounded-lg bg-blue-600 p-2 text-white shadow-md shadow-blue-600/10">
-                  <Calendar className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="text-white text-base font-bold tracking-tight">SISAGENDA</h3>
-                  <p className="text-[10px] text-slate-400 font-medium">Navegação Móvel</p>
-                </div>
-              </div>
+            <div className="h-px bg-divider" />
 
-              {/* Navigation Tabs */}
-              <nav className="flex-1 py-6 space-y-1.5">
-                {navigationItems.map((item) => {
-                  const IconComponent = item.icon;
-                  const isActive = activeView === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      id={`mobile-nav-${item.id}`}
-                      onClick={() => handleNavigateFromDashboard(item.id)}
-                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all cursor-pointer
-                        ${isActive
-                          ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
-                          : 'hover:bg-slate-800/60 hover:text-white text-slate-400'
-                        }`}
-                    >
-                      <IconComponent className="h-4.5 w-4.5 text-slate-400" />
-                      <span>{item.label}</span>
-                    </button>
-                  );
-                })}
-              </nav>
+            <nav className="flex flex-col">
+              {INDICE.map((item) => {
+                const ativo = activeView === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    id={`mobile-nav-${item.id}`}
+                    type="button"
+                    aria-current={ativo ? 'page' : undefined}
+                    onClick={() => handleNavigateFromDashboard(item.id)}
+                    className={`cursor-pointer border-b border-divider py-4 text-left text-[20px] font-semibold hover:bg-neutral-100
+                      ${ativo ? 'text-text' : 'text-neutral-700'}`}
+                  >
+                    {item.rotulo}
+                  </button>
+                );
+              })}
+            </nav>
 
-              <div className="pt-5 border-t border-slate-800 bg-slate-950/40 -mx-6 px-6 pb-2">
-                <div className="flex flex-col gap-1 text-[11px] text-slate-400 mb-3 truncate">
-                  <span>Logado como:</span>
-                  <span className="font-bold text-slate-200">{currentUser.email}</span>
-                </div>
-                <button
-                  id="mobile-logout-btn"
-                  onClick={handleLogout}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-slate-800 hover:bg-slate-700 py-3 text-xs font-bold text-slate-300 hover:text-white transition cursor-pointer"
-                >
-                  <LogOut className="h-4 w-4" />
-                  Terminar Sessão
-                </button>
-              </div>
-            </motion.div>
+            <div className="mt-auto text-[13px] text-neutral-700">
+              <div>Você entrou como</div>
+              <div className="mt-0.5 font-semibold break-all text-text">{currentUser.email}</div>
+              <button id="mobile-logout-btn" type="button" onClick={handleLogout} className="btn btn-secondary mt-3.5 w-full">
+                Sair da conta
+              </button>
+            </div>
           </div>
-        )}
-      </AnimatePresence>
+        </div>
+      )}
 
       {/* Reusable Confirmation Dialog before deleting entries */}
       <ConfirmModal
