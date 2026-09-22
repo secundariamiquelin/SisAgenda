@@ -26,8 +26,8 @@ function perguntarEscondido(pergunta) {
   });
 }
 
-const senha = await perguntarEscondido('Senha (mínimo 10 caracteres): ');
-if (senha.length < 10) {
+const senha = await perguntarEscondido('Senha (mínimo 6 caracteres): ');
+if (senha.length < 6) {
   console.error('Senha curta demais.');
   process.exit(1);
 }
