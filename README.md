@@ -34,8 +34,8 @@ O objetivo do sistema é organizar os atendimentos de forma simples e eficiente,
 
 ### Backend
 
-- Supabase
-- PostgreSQL
+- Funções da Vercel (pasta `api/`)
+- PostgreSQL no Neon
 
 ---
 
@@ -53,20 +53,28 @@ src/
 ├── App.tsx
 └── main.tsx
 
-supabase/
-└── migrations/
+api/            # funções da Vercel: auth, clientes, servicos, agendamentos
+└── _lib/       # banco, sessão, validação
+
+db/
+└── schema.sql  # tabelas do banco
+
+scripts/        # criar tabelas e usuários
 ```
 
 ---
 
 ## Banco de Dados
 
-O sistema utiliza o Supabase como Backend as a Service (BaaS), utilizando PostgreSQL para armazenamento dos dados.
+Os dados ficam num Postgres do Neon, criado pela aba Storage do projeto na Vercel.
+O navegador nunca fala com o banco: ele chama as funções em `api/`, que conferem a sessão e
+validam os dados antes de cada consulta. As tabelas estão em [`db/schema.sql`](db/schema.sql).
 
-### Tabela: pacientes
+O login é próprio: os usuários ficam na tabela `usuarios` com a senha em bcrypt, e a sessão
+vive num cookie HttpOnly assinado. Não existe cadastro público; quem entra é criado pelo script
+`npm run usuario`. Depois de 10 senhas erradas em 15 minutos, o e-mail fica bloqueado até a janela passar.
 
-| Campo | Tipo |
-|---------|---------|
+---------|---------|
 | id | UUID |
 | nome | TEXT |
 | telefone | TEXT |
@@ -103,18 +111,31 @@ npm install
 
 ### 3. Configurar variáveis de ambiente
 
-Criar um arquivo `.env` na raiz do projeto:
+Na Vercel, em Settings → Environment Variables:
 
-```env
-VITE_SUPABASE_URL=sua_url_supabase
-VITE_SUPABASE_ANON_KEY=sua_chave_publica
-```
-
-### 4. Executar em ambiente de desenvolvimento
+| Variável | Origem |
+|---|---|
+| `DATABASE_URL` | Criada sozinha ao conectar o banco Neon em Storage |
+| `SESSION_SECRET` | Texto aleatório com 32 caracteres ou mais (gere com o comando abaixo) |
 
 ```bash
-npm run dev
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
+
+Para rodar os scripts no seu computador, traga as variáveis com `vercel env pull .env.local`
+(o arquivo fica fora do git).
+
+### 4. Criar as tabelas e o primeiro usuário
+
+```bash
+npm run db:tabelas
+npm run usuario -- email@exemplo.com
+```
+
+O segundo comando pede a senha sem mostrá-la. Rodar de novo com o mesmo e-mail troca a senha.
+Para derrubar todas as sessões abertas, troque o `SESSION_SECRET` e faça um novo deploy.
+
+Em desenvolvimento, `vercel dev` sobe o site e as funções juntos (`npm run dev` sobe só o site).
 
 ### 5. Gerar build de produção
 
@@ -147,7 +168,7 @@ Este projeto foi desenvolvido para aplicação dos conceitos estudados na discip
 - Validação de dados
 - Integração com banco de dados
 - Operações CRUD
-- Persistência de dados utilizando Supabase
+- Persistência de dados em PostgreSQL (Neon)
 - Organização do código seguindo boas práticas de desenvolvimento
 
 ---

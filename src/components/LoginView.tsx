@@ -115,7 +115,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
 
           <div className="mt-[34px] flex items-center gap-2 border-t border-divider pt-4 text-[12px] text-neutral-700">
             <span aria-hidden="true" className="inline-block size-[7px] bg-accent" />
-            Sessão protegida · dados guardados no Supabase
+            Sessão protegida · dados guardados no Neon
           </div>
         </div>
       </div>
