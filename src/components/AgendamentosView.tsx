@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Agendamento, Cliente, Servico, AgendamentoStatus } from '../types';
-import { X, Calendar, AlertCircle, Clock, CalendarCheck } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
 import CabecalhoPagina from './ui/CabecalhoPagina';
+import Campo from './ui/Campo';
+import Dialogo from './ui/Dialogo';
 import Paginacao from './ui/Paginacao';
 import AcoesLinha from './ui/AcoesLinha';
 import EstadoVazio from './ui/EstadoVazio';
@@ -127,23 +127,13 @@ export default function AgendamentosView({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!clienteId) {
-      setValidationError('Selecione uma criança/aluno assistido para registrar o agendamento.');
+    if (!clienteId || !servicoId) {
+      setValidationError('Escolha a criança e a terapia da sessão.');
       return;
     }
 
-    if (!servicoId) {
-      setValidationError('Selecione uma modalidade de terapia para realizar o agendamento.');
-      return;
-    }
-
-    if (!dataAgendamento) {
-      setValidationError('A data do agendamento é obrigatória.');
-      return;
-    }
-
-    if (!horaAgendamento) {
-      setValidationError('A hora do agendamento é obrigatória.');
+    if (!dataAgendamento || !horaAgendamento) {
+      setValidationError('Informe o dia e a hora do atendimento.');
       return;
     }
 
@@ -161,13 +151,9 @@ export default function AgendamentosView({
       });
       handleCloseModal();
     } catch (err: any) {
-      setValidationError(err.message || 'Falha ao salvar agendamento.');
+      setValidationError(err.message || 'Não deu para salvar a sessão.');
       setIsSubmitting(false);
     }
-  };
-
-  const formatPreco = (val: number) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
   };
 
   return (
@@ -316,210 +302,129 @@ export default function AgendamentosView({
         </>
       )}
 
-      {/* Scheduler Dialog modal */}
-      <AnimatePresence>
-        {modalOpen && (
-          <div id="agendamento-modal" className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={handleCloseModal}
-              className="absolute inset-0 bg-slate-900/65 backdrop-blur-xs"
-            />
+      <Dialogo
+        id="agendamento-modal"
+        aberto={modalOpen}
+        onFechar={handleCloseModal}
+        tituloId="agendamento-modal-titulo"
+        largura="max-w-[560px]"
+      >
+        <h3 id="agendamento-modal-titulo" className="dialog-title mb-1.5 text-[28px]">
+          {editingAgendamento ? 'Ajustar a sessão' : 'Marcar um atendimento'}
+        </h3>
 
-            {/* Form modal */}
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 15 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 15 }}
-              className="relative w-full max-w-lg rounded-xl bg-white shadow-2xl p-6 z-10 border border-slate-100"
-            >
-              <button
-                onClick={handleCloseModal}
-                className="absolute top-4 right-4 rounded-lg p-1 text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition"
-              >
-                <X className="h-5 w-5" />
+        {clientes.length === 0 || servicos.length === 0 ? (
+          <>
+            <p className="m-0 text-[15px] text-neutral-800">
+              Antes de marcar uma sessão, cadastre pelo menos uma criança e uma terapia. Os dois cadastros ficam no
+              índice, em Crianças e Terapias.
+            </p>
+            <div className="dialog-actions mt-7 gap-3.5">
+              <button id="btn-close-required-warn" type="button" onClick={handleCloseModal} className="btn btn-primary">
+                Entendi
               </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="mb-6 text-[14px] text-neutral-700">
+              Escolha a criança, a terapia e o horário. A gente avisa se já houver alguém nesse mesmo espaço.
+            </p>
 
-              <h3 className="text-base font-bold text-slate-950">
-                {editingAgendamento ? 'Editar Horário Marcado' : 'Agendar Novo Atendimento'}
-              </h3>
-              <p className="text-xs text-slate-400 mt-1">
-                Insira as detalhes temporais do serviço e confira conflitos instantaneamente.
-              </p>
-
-              {clientes.length === 0 || servicos.length === 0 ? (
-                <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800 space-y-2">
-                  <div className="flex items-center gap-2 font-bold">
-                    <AlertCircle className="h-4 w-4" />
-                    <span>Pré-requisitos Faltantes</span>
-                  </div>
-                  <p>
-                    Para registrar um novo agendamento, primeiro você precisa de no mínimo <strong>1 cliente</strong> e <strong>1 serviço</strong> cadastrados no sistema.
-                  </p>
-                  <p className="text-[11px] font-sans text-amber-900">
-                    Por favor, utilize o menu lateral para cadastrar serviços e clientes primeiro!
-                  </p>
-                  <div className="pt-2 flex justify-end">
-                    <button
-                      id="btn-close-required-warn"
-                      type="button"
-                      onClick={handleCloseModal}
-                      className="rounded bg-white border border-amber-200 px-3 py-1 font-bold text-amber-900 hover:bg-amber-100 transition"
-                    >
-                      Entendido
-                    </button>
-                  </div>
+            <form onSubmit={handleSubmit} noValidate className="contents">
+              {validationError && (
+                <div role="alert" className="mb-4 text-[13px] text-accent-2-700">
+                  {validationError}
                 </div>
-              ) : (
-                <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-                  {validationError && (
-                    <div className="flex items-start gap-2 rounded-lg bg-rose-50 p-3 text-xs text-rose-700 font-semibold leading-relaxed">
-                      <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-                      <span>{validationError}</span>
-                    </div>
-                  )}
-
-                  {/* Cliente Selector */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                      Selecione o Cliente <span className="text-rose-500">*</span>
-                    </label>
-                    <select
-                      id="select-agendamento-cliente"
-                      required
-                      value={clienteId}
-                      onChange={(e) => setClienteId(e.target.value)}
-                      className="w-full px-3.5 py-2 text-sm border border-slate-200 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                    >
-                      <option value="" disabled>-- Selecione um cliente cadastrado --</option>
-                      {clientes.map(c => (
-                        <option key={c.id} value={c.id}>{c.nome} {c.telefone ? `(${c.telefone})` : ''}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Servico Selector */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                      Selecione o Serviço <span className="text-rose-500">*</span>
-                    </label>
-                    <select
-                      id="select-agendamento-servico"
-                      required
-                      value={servicoId}
-                      onChange={(e) => setServicoId(e.target.value)}
-                      className="w-full px-3.5 py-2 text-sm border border-slate-200 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                    >
-                      <option value="" disabled>-- Selecione o serviço pretendido --</option>
-                      {servicos.map(s => (
-                        <option key={s.id} value={s.id}>{s.nome} ({s.duracao_minutos} min • {formatPreco(s.preco)})</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Data & Hora */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                        <Calendar className="h-3.5 w-3.5" />
-                        Data do Atendimento <span className="text-rose-500">*</span>
-                      </label>
-                      <input
-                        id="input-agendamento-data"
-                        type="date"
-                        required
-                        value={dataAgendamento}
-                        onChange={(e) => setDataAgendamento(e.target.value)}
-                        className="w-full px-3.5 py-2 text-sm border border-slate-200 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                        <Clock className="h-3.5 w-3.5" />
-                        Hora de Início <span className="text-rose-500">*</span>
-                      </label>
-                      <input
-                        id="input-agendamento-hora"
-                        type="time"
-                        required
-                        value={horaAgendamento}
-                        onChange={(e) => setHoraAgendamento(e.target.value)}
-                        className="w-full px-3.5 py-2 text-sm border border-slate-200 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Status & Observação */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                        Status Inicial do Agendamento
-                      </label>
-                      <select
-                        id="select-agendamento-status"
-                        value={status}
-                        onChange={(e) => setStatus(e.target.value as AgendamentoStatus)}
-                        className="w-full px-3.5 py-2 text-sm border border-slate-200 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                      >
-                        <option value="Agendado">📅 Agendado</option>
-                        <option value="Confirmado">✅ Confirmado</option>
-                        <option value="Concluído">✔️ Concluído</option>
-                        <option value="Cancelado">❌ Cancelado</option>
-                      </select>
-                    </div>
-
-                    <div className="flex items-end text-[11px] text-slate-400 pb-2 bg-slate-50 rounded-lg p-2.5 border border-slate-100">
-                      <div className="flex items-start gap-1.5">
-                        <CalendarCheck className="h-4.5 w-4.5 text-blue-500 shrink-0 mt-0.5" />
-                        <span>
-                          <strong>Bloqueio de Agenda:</strong> status diferentes de <strong>Cancelado</strong> restringem a agenda de aceitar reservas no mesmo dia e horário.
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                      Observações & Detalhes Adicionais
-                    </label>
-                    <textarea
-                      id="textarea-agendamento-observacoes"
-                      rows={2.5}
-                      value={observacao}
-                      onChange={(e) => setObservacao(e.target.value)}
-                      placeholder="Ex: Levar fotos de referência, restrições a produtos de salão..."
-                      className="w-full px-3.5 py-2 text-sm border border-slate-200 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                    />
-                  </div>
-
-                  <div className="flex justify-end gap-3 pt-2">
-                    <button
-                      id="btn-modal-cancelar"
-                      type="button"
-                      onClick={handleCloseModal}
-                      className="px-4 py-2 text-xs font-bold text-slate-700 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer transition"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      id="btn-modal-salvar"
-                      type="submit"
-                      disabled={isSubmitting}
-                      className="flex items-center gap-1.5 px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-lg transition shadow-md shadow-blue-500/10 disabled:opacity-50 cursor-pointer"
-                    >
-                      {isSubmitting ? 'Validando Horários...' : 'Registrar Agendamento'}
-                    </button>
-                  </div>
-                </form>
               )}
-            </motion.div>
-          </div>
+
+              <div className="flex flex-col gap-[18px]">
+                <Campo rotulo="Criança">
+                  <select
+                    id="select-agendamento-cliente"
+                    value={clienteId}
+                    onChange={(e) => setClienteId(e.target.value)}
+                    className="input"
+                  >
+                    <option value="" disabled>Escolha a criança</option>
+                    {clientes.map((c) => (
+                      <option key={c.id} value={c.id}>{c.nome}</option>
+                    ))}
+                  </select>
+                </Campo>
+
+                <Campo rotulo="Terapia">
+                  <select
+                    id="select-agendamento-servico"
+                    value={servicoId}
+                    onChange={(e) => setServicoId(e.target.value)}
+                    className="input"
+                  >
+                    <option value="" disabled>Escolha a terapia</option>
+                    {servicos.map((s) => (
+                      <option key={s.id} value={s.id}>{s.nome} ({s.duracao_minutos} min)</option>
+                    ))}
+                  </select>
+                </Campo>
+
+                <div className="grid gap-[18px] sm:grid-cols-2">
+                  <Campo rotulo="Dia">
+                    <input
+                      id="input-agendamento-data"
+                      type="date"
+                      value={dataAgendamento}
+                      onChange={(e) => setDataAgendamento(e.target.value)}
+                      className="input"
+                    />
+                  </Campo>
+                  <Campo rotulo="Começa às">
+                    <input
+                      id="input-agendamento-hora"
+                      type="time"
+                      value={horaAgendamento}
+                      onChange={(e) => setHoraAgendamento(e.target.value)}
+                      className="input"
+                    />
+                  </Campo>
+                </div>
+
+                <Campo rotulo="Situação">
+                  <select
+                    id="select-agendamento-status"
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value as AgendamentoStatus)}
+                    className="input"
+                  >
+                    {SITUACOES.map((situacao) => (
+                      <option key={situacao} value={situacao}>{situacao}</option>
+                    ))}
+                  </select>
+                </Campo>
+
+                <Campo rotulo="Recados para a sessão">
+                  <textarea
+                    id="textarea-agendamento-observacoes"
+                    rows={3}
+                    value={observacao}
+                    onChange={(e) => setObservacao(e.target.value)}
+                    placeholder="Ex.: chegou cansado da escola, evitar sons altos"
+                    className="input"
+                  />
+                </Campo>
+              </div>
+
+              <div className="dialog-actions mt-7 gap-3.5">
+                <button id="btn-modal-cancelar" type="button" onClick={handleCloseModal} className="btn btn-ghost">
+                  Cancelar
+                </button>
+                <button id="btn-modal-salvar" type="submit" disabled={isSubmitting} className="btn btn-primary">
+                  {isSubmitting ? 'Salvando…' : 'Salvar na agenda'}
+                </button>
+              </div>
+            </form>
+          </>
         )}
-      </AnimatePresence>
+      </Dialogo>
     </section>
   );
 }

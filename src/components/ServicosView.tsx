@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Servico } from '../types';
-import { X, AlertCircle, Clock, DollarSign } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
 import CabecalhoPagina from './ui/CabecalhoPagina';
+import Campo from './ui/Campo';
+import Dialogo from './ui/Dialogo';
 import Paginacao from './ui/Paginacao';
 import AcoesLinha from './ui/AcoesLinha';
 import EstadoVazio from './ui/EstadoVazio';
@@ -27,8 +27,8 @@ export default function ServicosView({
 
   // Campos do formulário
   const [nome, setNome] = useState('');
-  const [duracao, setDuracao] = useState(30);
-  const [preco, setPreco] = useState('');
+  const [duracao, setDuracao] = useState(50);
+  const [preco, setPreco] = useState('0');
 
   // Erros e avisos
   const [validationError, setValidationError] = useState('');
@@ -66,8 +66,8 @@ export default function ServicosView({
     } else {
       setEditingServico(null);
       setNome('');
-      setDuracao(30);
-      setPreco('');
+      setDuracao(50);
+      setPreco('0');
     }
     setValidationError('');
     setModalOpen(true);
@@ -82,19 +82,19 @@ export default function ServicosView({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nome.trim()) {
-      setValidationError('O nome do serviço é obrigatório.');
+      setValidationError('Dê um nome para a terapia.');
       return;
     }
 
     const duracaoNum = parseInt(duracao.toString());
     if (isNaN(duracaoNum) || duracaoNum <= 0) {
-      setValidationError('A duração em minutos deve ser um número inteiro maior que zero.');
+      setValidationError('A duração precisa ser um número inteiro maior que zero.');
       return;
     }
 
     const precoNum = parseFloat(preco.replace(',', '.'));
     if (isNaN(precoNum) || precoNum < 0) {
-      setValidationError('O preço do serviço deve ser um número válido igual ou superior a zero.');
+      setValidationError('A contribuição precisa ser um valor igual ou maior que zero.');
       return;
     }
 
@@ -109,7 +109,7 @@ export default function ServicosView({
       });
       handleCloseModal();
     } catch (err: any) {
-      setValidationError(err.message || 'Houve um erro ao processar o salvamento do serviço.');
+      setValidationError(err.message || 'Não deu para salvar a terapia.');
       setIsSubmitting(false);
     }
   };
@@ -194,121 +194,73 @@ export default function ServicosView({
         </>
       )}
 
-      {/* Create / Edit Modal */}
-      <AnimatePresence>
-        {modalOpen && (
-          <div id="servico-modal" className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={handleCloseModal}
-              className="absolute inset-0 bg-slate-900/65 backdrop-blur-xs"
-            />
+      <Dialogo
+        id="servico-modal"
+        aberto={modalOpen}
+        onFechar={handleCloseModal}
+        tituloId="servico-modal-titulo"
+        largura="max-w-[480px]"
+      >
+        <h3 id="servico-modal-titulo" className="dialog-title mb-1.5 text-[28px]">
+          {editingServico ? 'Ajustar terapia' : 'Nova terapia'}
+        </h3>
+        <p className="mb-6 text-[14px] text-neutral-700">
+          Modalidade de atendimento, tempo médio de sessão e a contribuição sugerida à família.
+        </p>
 
-            {/* Form Box */}
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 15 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 15 }}
-              className="relative w-full max-w-lg rounded-xl bg-white shadow-2xl p-6 z-10 border border-slate-100"
-            >
-              <button
-                onClick={handleCloseModal}
-                className="absolute top-4 right-4 rounded-lg p-1 text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition"
-              >
-                <X className="h-5 w-5" />
-              </button>
+        <form onSubmit={handleSubmit} noValidate className="contents">
+          {validationError && (
+            <div role="alert" className="mb-4 text-[13px] text-accent-2-700">
+              {validationError}
+            </div>
+          )}
 
-              <h3 className="text-base font-bold text-slate-950">
-                {editingServico ? 'Editar Especialidade / Terapia' : 'Adicionar Nova Especialidade / Terapia'}
-              </h3>
-              <p className="text-xs text-slate-400 mt-1">
-                Insira as detalhes da modalidade de atendimento multidisciplinar oferecido pelo Instituto.
-              </p>
+          <div className="flex flex-col gap-[18px]">
+            <Campo rotulo="Nome da terapia">
+              <input
+                id="input-servico-nome"
+                type="text"
+                value={nome}
+                onChange={(e) => setNome(e.target.value)}
+                placeholder="Ex.: Terapia fonoaudiológica"
+                className="input"
+              />
+            </Campo>
 
-              <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-                {validationError && (
-                  <div className="flex items-start gap-2 rounded-lg bg-rose-50 p-3 text-xs text-rose-700 font-semibold">
-                    <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-                    <span>{validationError}</span>
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Nome da Terapia <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    id="input-servico-nome"
-                    type="text"
-                    required
-                    value={nome}
-                    onChange={(e) => setNome(e.target.value)}
-                    placeholder="Ex: Atendimento Psicopedagógico (Mileide) - TEA"
-                    className="w-full px-3.5 py-2 text-sm border border-slate-200 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                      <Clock className="h-3.5 w-3.5" />
-                      Duração (Minutos) <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      id="input-servico-duracao"
-                      type="number"
-                      required
-                      min={1}
-                      value={duracao}
-                      onChange={(e) => setDuracao(parseInt(e.target.value) || 0)}
-                      placeholder="Ex: 45"
-                      className="w-full px-3.5 py-2 text-sm border border-slate-200 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                      <DollarSign className="h-3.5 w-3.5" />
-                      Preço Cobrado (R$) <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      id="input-servico-preco"
-                      type="text"
-                      required
-                      value={preco}
-                      onChange={(e) => setPreco(e.target.value)}
-                      placeholder="Ex: 120,00"
-                      className="w-full px-3.5 py-2 text-sm border border-slate-200 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-3 pt-2">
-                  <button
-                    id="btn-modal-cancelar"
-                    type="button"
-                    onClick={handleCloseModal}
-                    className="px-4 py-2 text-xs font-bold text-slate-700 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer transition"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    id="btn-modal-salvar"
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="flex items-center gap-1.5 px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-lg transition shadow-md shadow-blue-500/10 disabled:opacity-50 cursor-pointer"
-                  >
-                    {isSubmitting ? 'Salvando...' : 'Salvar Serviço'}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
+            <div className="grid gap-[18px] sm:grid-cols-2">
+              <Campo rotulo="Duração (min)">
+                <input
+                  id="input-servico-duracao"
+                  type="number"
+                  min={1}
+                  value={duracao}
+                  onChange={(e) => setDuracao(parseInt(e.target.value) || 0)}
+                  className="input"
+                />
+              </Campo>
+              <Campo rotulo="Contribuição (R$)">
+                <input
+                  id="input-servico-preco"
+                  type="text"
+                  inputMode="decimal"
+                  value={preco}
+                  onChange={(e) => setPreco(e.target.value)}
+                  className="input"
+                />
+              </Campo>
+            </div>
           </div>
-        )}
-      </AnimatePresence>
+
+          <div className="dialog-actions mt-7 gap-3.5">
+            <button id="btn-modal-cancelar" type="button" onClick={handleCloseModal} className="btn btn-ghost">
+              Cancelar
+            </button>
+            <button id="btn-modal-salvar" type="submit" disabled={isSubmitting} className="btn btn-primary">
+              {isSubmitting ? 'Salvando…' : 'Salvar terapia'}
+            </button>
+          </div>
+        </form>
+      </Dialogo>
     </section>
   );
 }

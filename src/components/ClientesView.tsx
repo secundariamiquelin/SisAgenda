@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Cliente } from '../types';
-import { X, AlertCircle } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
 import CabecalhoPagina from './ui/CabecalhoPagina';
+import Campo from './ui/Campo';
+import Dialogo from './ui/Dialogo';
 import Paginacao from './ui/Paginacao';
 import AcoesLinha from './ui/AcoesLinha';
 import EstadoVazio from './ui/EstadoVazio';
@@ -82,7 +82,7 @@ export default function ClientesView({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nome.trim()) {
-      setValidationError('O nome do cliente é obrigatório.');
+      setValidationError('O nome da criança é obrigatório.');
       return;
     }
 
@@ -97,7 +97,7 @@ export default function ClientesView({
       });
       handleCloseModal();
     } catch (err: any) {
-      setValidationError(err.message || 'Houve um erro ao processar o salvamento.');
+      setValidationError(err.message || 'Não deu para salvar o cadastro.');
       setIsSubmitting(false);
     }
   };
@@ -187,114 +187,72 @@ export default function ClientesView({
         </>
       )}
 
-      {/* Create / Edit Modal */}
-      <AnimatePresence>
-        {modalOpen && (
-          <div id="cliente-modal" className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={handleCloseModal}
-              className="absolute inset-0 bg-slate-900/65 backdrop-blur-xs"
-            />
+      <Dialogo
+        id="cliente-modal"
+        aberto={modalOpen}
+        onFechar={handleCloseModal}
+        tituloId="cliente-modal-titulo"
+        largura="max-w-[520px]"
+      >
+        <h3 id="cliente-modal-titulo" className="dialog-title mb-1.5 text-[28px]">
+          {editingCliente ? 'Ajustar cadastro' : 'Nova criança'}
+        </h3>
+        <p className="mb-6 text-[14px] text-neutral-700">
+          Guarde o nome como a família chama, o contato de quem cuida e o que ajuda a criança a se sentir bem aqui.
+        </p>
 
-            {/* Form Box */}
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 15 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 15 }}
-              className="relative w-full max-w-lg rounded-xl bg-white shadow-2xl p-6 z-10 border border-slate-100"
-            >
-              <button
-                onClick={handleCloseModal}
-                className="absolute top-4 right-4 rounded-lg p-1 text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition"
-              >
-                <X className="h-5 w-5" />
-              </button>
+        <form onSubmit={handleSubmit} noValidate className="contents">
+          {validationError && (
+            <div role="alert" className="mb-4 text-[13px] text-accent-2-700">
+              {validationError}
+            </div>
+          )}
 
-              <h3 className="text-base font-bold text-slate-950">
-                {editingCliente ? 'Editar Cadastro de Assistido' : 'Adicionar Novo Assistido'}
-              </h3>
-              <p className="text-xs text-slate-400 mt-1">
-                Insira as informações de identificação, contato dos responsáveis e observações lúdicas/clínicas para acompanhamento do Instituto.
-              </p>
+          <div className="flex flex-col gap-[18px]">
+            <Campo rotulo="Nome da criança">
+              <input
+                id="input-cliente-nome"
+                type="text"
+                value={nome}
+                onChange={(e) => setNome(e.target.value)}
+                placeholder="Ex.: Enzo Gabriel Martins"
+                className="input"
+              />
+            </Campo>
 
-              <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-                {validationError && (
-                  <div className="flex items-start gap-2 rounded-lg bg-rose-50 p-3 text-xs text-rose-700 font-semibold">
-                    <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-                    <span>{validationError}</span>
-                  </div>
-                )}
+            <Campo rotulo="Telefone do responsável">
+              <input
+                id="input-cliente-telefone"
+                type="text"
+                value={telefone}
+                onChange={(e) => setTelefone(e.target.value)}
+                placeholder="(44) 99999-9999"
+                className="input"
+              />
+            </Campo>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Nome Completo da Criança <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    id="input-cliente-nome"
-                    type="text"
-                    required
-                    value={nome}
-                    onChange={(e) => setNome(e.target.value)}
-                    placeholder="Ex: Enzo Gabriel Martins (Mãe: Mileide)"
-                    className="w-full px-3.5 py-2 text-sm border border-slate-200 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Telefone dos Pais / Responsáveis
-                  </label>
-                  <input
-                    id="input-cliente-telefone"
-                    type="text"
-                    value={telefone}
-                    onChange={(e) => setTelefone(e.target.value)}
-                    placeholder="Ex: (44) 99999-9999"
-                    className="w-full px-3.5 py-2 text-sm border border-slate-200 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Histórico / Observações de Suporte e TEA
-                  </label>
-                  <textarea
-                    id="textarea-cliente-observacoes"
-                    rows={3}
-                    value={observacoes}
-                    onChange={(e) => setObservacoes(e.target.value)}
-                    placeholder="Ex: Nível de suporte, preferências lúdicas, restrições alimentares ou sensoriais, histórico escolar..."
-                    className="w-full px-3.5 py-2 text-sm border border-slate-200 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                  />
-                </div>
-
-                <div className="flex justify-end gap-3 pt-2">
-                  <button
-                    id="btn-modal-cancelar"
-                    type="button"
-                    onClick={handleCloseModal}
-                    className="px-4 py-2 text-xs font-bold text-slate-700 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer transition"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    id="btn-modal-salvar"
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="flex items-center gap-1.5 px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-lg transition shadow-md shadow-blue-500/10 disabled:opacity-50 cursor-pointer"
-                  >
-                    {isSubmitting ? 'Salvando...' : 'Salvar Cadastro'}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
+            <Campo rotulo="Histórico e preferências">
+              <textarea
+                id="textarea-cliente-observacoes"
+                rows={4}
+                value={observacoes}
+                onChange={(e) => setObservacoes(e.target.value)}
+                placeholder="Nível de suporte, o que acalma, o que incomoda, rotina escolar…"
+                className="input"
+              />
+            </Campo>
           </div>
-        )}
-      </AnimatePresence>
+
+          <div className="dialog-actions mt-7 gap-3.5">
+            <button id="btn-modal-cancelar" type="button" onClick={handleCloseModal} className="btn btn-ghost">
+              Cancelar
+            </button>
+            <button id="btn-modal-salvar" type="submit" disabled={isSubmitting} className="btn btn-primary">
+              {isSubmitting ? 'Salvando…' : 'Salvar cadastro'}
+            </button>
+          </div>
+        </form>
+      </Dialogo>
     </section>
   );
 }
