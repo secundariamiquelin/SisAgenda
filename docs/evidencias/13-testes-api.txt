@@ -1,0 +1,39 @@
+Verificações automatizadas da API do SisAgenda
+Executado em 25/09/2026 08:08 · Node v22.22.3 · Postgres em memória (PGlite)
+
+ok    sem sessão -> usuario null
+ok    dados sem sessão -> 401
+ok    senha errada -> 401
+ok    email inexistente -> 401
+ok    POST sem x-sisagenda -> 403
+ok    login ok + cookie
+ok    tentativas limpas após sucesso
+ok    GET auth com sessão
+ok    cookie adulterado -> 401
+ok    cria criança (trim, vazio->null)
+ok    criança sem nome -> 400
+ok    edita criança
+ok    edita inexistente -> 404
+ok    lista ordenada por nome
+ok    cria terapia, preço número
+ok    duração 0 -> 400
+ok    preço negativo -> 400
+ok    cria sessão, formatos
+ok    conflito -> 409 com mensagem
+ok    cancelado não bloqueia
+ok    edita a própria sessão sem conflito
+ok    mover para horário ocupado -> 409
+ok    status inválido -> 400
+ok    hora inválida -> 400
+ok    FK inexistente -> 400 com mensagem
+ok    índice único bloqueia duplicado (23505)
+ok    lista com join e ordem
+ok    delete id inválido -> 400
+ok    delete sessão
+ok    delete criança cascateia sessões
+ok    logout apaga cookie
+ok    após logout -> 401
+ok    11ª tentativa bloqueada -> 429
+ok    sem SESSION_SECRET -> 500 genérico
+
+Tudo certo.
