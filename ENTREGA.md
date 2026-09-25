@@ -10,7 +10,7 @@ Documento de entrega do produto: o que foi feito, como demonstrar, o que já fun
 |---|---|
 | Produto | SisAgenda — agenda do Instituto Mentes em Desenvolvimento |
 | Versão | v1.0.0 |
-| Commit | `e957fb3` (tag `v1.0.0`) |
+| Identificação no repositório | Tag `v1.0.0` (`git show v1.0.0` mostra o commit exato) |
 | Data da apresentação | 25/09/2026 |
 | Endereço em produção | https://sisagenda.vercel.app |
 | Repositório | https://github.com/secundariamiquelin/SisAgenda (branch `master`) |
